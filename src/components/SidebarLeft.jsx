@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { useUser } from '../context/UserContext';
 import Leaderboard from './Leaderboard';
 
-const SidebarLeft = ({ setActiveSection }) => {
-  const [activeSport, setActiveSport] = useState('Soccer');
+const SidebarLeft = ({ activeSport, setActiveSport, setActiveSection }) => {
   const { user, wallet, formatCurrency } = useUser();
 
   const sports = [

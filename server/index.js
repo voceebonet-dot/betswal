@@ -54,56 +54,88 @@ const generateFutureDate = (daysAhead, hoursStr) => {
   return `${day}/${month}, ${hoursStr}`;
 };
 
-const LEAGUES = [
-  'England • Premier League', 'Spain • La Liga', 'Italy • Serie A', 'Germany • Bundesliga',
-  'France • Ligue 1', 'Netherlands • Eredivisie', 'Portugal • Primeira Liga',
-  'Argentina • Primera LPF', 'Brazil • Serie A', 'USA • MLS', 'Mexico • Liga MX',
-  'Japan • J-League', 'Australia • A-League', 'Kenya • FKF Premier'
-];
+const LEAGUES = {
+  'Soccer': [
+    'England • Premier League', 'Spain • La Liga', 'Italy • Serie A', 'Germany • Bundesliga',
+    'France • Ligue 1', 'Netherlands • Eredivisie', 'Portugal • Primeira Liga',
+    'Argentina • Primera LPF', 'Brazil • Serie A', 'USA • MLS', 'Mexico • Liga MX',
+    'Kenya • FKF Premier'
+  ],
+  'Basketball': ['USA • NBA', 'Europe • EuroLeague', 'Spain • Liga ACB'],
+  'Tennis': ['ATP • Wimbledon', 'WTA • US Open', 'ATP • Roland Garros'],
+  'eSoccer': ['FIFA 23 • ePremier League', 'FIFA 23 • eChampions League'],
+  'Table Tennis': ['Pro • Setka Cup', 'Pro • TT Cup'],
+  'Boxing': ['Heavyweight Bout', 'Middleweight Bout'],
+  'Rugby': ['England • Premiership', 'Australia • NRL']
+};
 
 const TEAMS = {
+  // Soccer
   'England • Premier League': [['Arsenal', 'Chelsea'], ['Man City', 'Spurs'], ['Liverpool', 'Everton'], ['Man Utd', 'Aston Villa']],
   'Spain • La Liga': [['Real Madrid', 'Barcelona'], ['Atletico', 'Sevilla'], ['Valencia', 'Villarreal'], ['Betis', 'Sociedad']],
   'Italy • Serie A': [['Juventus', 'Milan'], ['Inter', 'Roma'], ['Napoli', 'Lazio'], ['Atalanta', 'Fiorentina']],
-  'Germany • Bundesliga': [['Bayern', 'Dortmund'], ['Leipzig', 'Leverkusen'], ['Frankfurt', 'Wolfsburg'], ['Gladbach', 'Stuttgart']],
-  'France • Ligue 1': [['PSG', 'Marseille'], ['Lyon', 'Monaco'], ['Lille', 'Rennes'], ['Nice', 'Lens']],
-  'Netherlands • Eredivisie': [['Ajax', 'PSV'], ['Feyenoord', 'AZ'], ['Twente', 'Utrecht'], ['Vitesse', 'Heerenveen']],
-  'Portugal • Primeira Liga': [['Benfica', 'Porto'], ['Sporting', 'Braga'], ['Vitoria', 'Rio Ave'], ['Boavista', 'Famalicao']],
-  'Argentina • Primera LPF': [['Boca Juniors', 'River Plate'], ['Racing Club', 'Independiente'], ['San Lorenzo', 'Huracan'], ['Velez', 'Lanus']],
-  'Brazil • Serie A': [['Flamengo', 'Palmeiras'], ['Santos', 'Sao Paulo'], ['Corinthians', 'Gremio'], ['Atletico Mineiro', 'Fluminense']],
-  'USA • MLS': [['LA Galaxy', 'LAFC'], ['Seattle', 'Portland'], ['Atlanta', 'Miami'], ['NYFC', 'Red Bulls']],
-  'Mexico • Liga MX': [['Club America', 'Chivas'], ['Cruz Azul', 'Pumas'], ['Tigres', 'Monterrey'], ['Toluca', 'Pachuca']],
-  'Japan • J-League': [['Kawasaki', 'Yokohama'], ['Urawa', 'Kashima'], ['Gamba', 'Cerezo'], ['FC Tokyo', 'Nagoya']],
-  'Australia • A-League': [['Sydney FC', 'Melbourne'], ['Wanderers', 'Brisbane'], ['Adelaide', 'Perth'], ['Central Coast', 'Wellington']],
-  'Kenya • FKF Premier': [['Gor Mahia', 'AFC Leopards'], ['Tusker', 'Bandari'], ['Police FC', 'Ulinzi Stars'], ['Sofapaka', 'Kakamega']]
+  'Germany • Bundesliga': [['Bayern', 'Dortmund'], ['Leipzig', 'Leverkusen'], ['Frankfurt', 'Wolfsburg']],
+  'France • Ligue 1': [['PSG', 'Marseille'], ['Lyon', 'Monaco'], ['Lille', 'Rennes']],
+  'Netherlands • Eredivisie': [['Ajax', 'PSV'], ['Feyenoord', 'AZ']],
+  'Portugal • Primeira Liga': [['Benfica', 'Porto'], ['Sporting', 'Braga']],
+  'Argentina • Primera LPF': [['Boca Juniors', 'River Plate'], ['Racing Club', 'Independiente']],
+  'Brazil • Serie A': [['Flamengo', 'Palmeiras'], ['Santos', 'Sao Paulo']],
+  'USA • MLS': [['LA Galaxy', 'LAFC'], ['Seattle', 'Portland']],
+  'Mexico • Liga MX': [['Club America', 'Chivas'], ['Cruz Azul', 'Pumas']],
+  'Kenya • FKF Premier': [['Gor Mahia', 'AFC Leopards'], ['Tusker', 'Bandari']],
+  // Basketball
+  'USA • NBA': [['Lakers', 'Warriors'], ['Celtics', 'Heat'], ['Bulls', 'Knicks'], ['Suns', 'Nuggets']],
+  'Europe • EuroLeague': [['Real Madrid', 'Olympiacos'], ['Barcelona', 'Fenerbahce']],
+  'Spain • Liga ACB': [['Real Madrid', 'Baskonia'], ['Barcelona', 'Unicaja']],
+  // Tennis
+  'ATP • Wimbledon': [['Alcaraz C.', 'Djokovic N.'], ['Sinner J.', 'Medvedev D.']],
+  'WTA • US Open': [['Swiatek I.', 'Gauff C.'], ['Sabalenka A.', 'Rybakina E.']],
+  'ATP • Roland Garros': [['Nadal R.', 'Ruud C.'], ['Zverev A.', 'Tsitsipas S.']],
+  // eSoccer
+  'FIFA 23 • ePremier League': [['eManCity', 'eLiverpool'], ['eArsenal', 'eChelsea']],
+  'FIFA 23 • eChampions League': [['eRealMadrid', 'eBayern'], ['ePSG', 'eJuventus']],
+  // Table Tennis
+  'Pro • Setka Cup': [['Ivanov A.', 'Petrov B.'], ['Sidorov V.', 'Kuznetsov D.']],
+  'Pro • TT Cup': [['Wang L.', 'Zhang M.'], ['Chen Y.', 'Liu H.']],
+  // Boxing
+  'Heavyweight Bout': [['Usyk O.', 'Fury T.'], ['Joshua A.', 'Wilder D.']],
+  'Middleweight Bout': [['Canelo A.', 'Charlo J.'], ['Golovkin G.', 'Lara E.']],
+  // Rugby
+  'England • Premiership': [['Saracens', 'Bath'], ['Harlequins', 'Sale Sharks']],
+  'Australia • NRL': [['Panthers', 'Broncos'], ['Storm', 'Roosters']]
 };
 
 let highlightMatches = [];
 let matchIdCounter = 1;
 
 for (let day = 0; day <= 7; day++) {
-  const numMatches = day === 0 ? 8 : 15; // fewer matches today as many are live
-  for (let i = 0; i < numMatches; i++) {
-    const league = LEAGUES[Math.floor(Math.random() * LEAGUES.length)];
-    const teamPair = TEAMS[league][Math.floor(Math.random() * TEAMS[league].length)];
+  // Generate matches for each sport
+  Object.keys(LEAGUES).forEach(sport => {
+    const numMatches = sport === 'Soccer' ? (day === 0 ? 8 : 12) : (day === 0 ? 3 : 5);
     
-    // random hours
-    const hour = Math.floor(Math.random() * 10) + 12; // 12:00 to 21:00
-    const min = Math.random() > 0.5 ? '00' : '30';
-    
-    const odd1 = (Math.random() * 2 + 1.1).toFixed(2);
-    const oddX = (Math.random() * 2 + 2.5).toFixed(2);
-    const odd2 = (Math.random() * 4 + 1.5).toFixed(2);
+    for (let i = 0; i < numMatches; i++) {
+      const leaguesForSport = LEAGUES[sport];
+      const league = leaguesForSport[Math.floor(Math.random() * leaguesForSport.length)];
+      const teamPair = TEAMS[league][Math.floor(Math.random() * TEAMS[league].length)];
+      
+      const hour = Math.floor(Math.random() * 10) + 12; // 12:00 to 21:00
+      const min = Math.random() > 0.5 ? '00' : '30';
+      
+      const odd1 = (Math.random() * 2 + 1.1).toFixed(2);
+      const oddX = (Math.random() * 2 + 2.5).toFixed(2);
+      const odd2 = (Math.random() * 4 + 1.5).toFixed(2);
 
-    highlightMatches.push({
-      id: matchIdCounter++,
-      country: league,
-      home: teamPair[0],
-      away: teamPair[1],
-      date: generateFutureDate(day, `${hour}:${min}`),
-      odds: [parseFloat(odd1), parseFloat(oddX), parseFloat(odd2)]
-    });
-  }
+      highlightMatches.push({
+        id: matchIdCounter++,
+        sport: sport,
+        country: league,
+        home: teamPair[0],
+        away: teamPair[1],
+        date: generateFutureDate(day, `${hour}:${min}`),
+        odds: [parseFloat(odd1), parseFloat(oddX), parseFloat(odd2)]
+      });
+    }
+  });
 }
 
 // 3. Jackpot data

@@ -115,7 +115,7 @@ const LivePanel = ({ bets, toggleBet }) => {
 };
 
 // ── Highlights panel (gentle pre-match odds drift) ────────────────────────────
-const HighlightsPanel = ({ bets, toggleBet }) => {
+const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
   const { highlights } = useSocket();
   const prevRef = useRef({});
   const [prevOdds, setPrevOdds] = useState({});
@@ -129,16 +129,34 @@ const HighlightsPanel = ({ bets, toggleBet }) => {
 
   const betTypes = ['1', 'X', '2'];
 
-  if (!highlights.length) return (
-    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Loading matches…</div>
+  const filteredHighlights = highlights.filter(m => !activeSport || m.sport === activeSport || (activeSport === 'Soccer' && !m.sport));
+
+  if (!filteredHighlights.length) return (
+    <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', backgroundColor: 'var(--bg-panel)', borderRadius: '12px', marginTop: '1rem' }}>
+      <div style={{ fontSize: '48px', marginBottom: '1rem', opacity: 0.5 }}>🏟️</div>
+      <h3 style={{ color: '#fff', fontSize: '18px', marginBottom: '0.5rem' }}>No matches scheduled</h3>
+      <p>There are currently no {activeSport} matches scheduled. Please check back later or try another sport.</p>
+    </div>
   );
+
+  const getSportIcon = (sport) => {
+    switch (sport) {
+      case 'Basketball': return '🏀';
+      case 'Tennis': return '🎾';
+      case 'Table Tennis': return '🏓';
+      case 'Boxing': return '🥊';
+      case 'Rugby': return '🏉';
+      case 'eSoccer': return '🎮';
+      default: return '⚽';
+    }
+  };
 
   return (
     <div>
-      {highlights.map(match => (
+      {filteredHighlights.map(match => (
         <div key={match.id} className="match-row">
           <div style={{ flex: 1, paddingRight: '1rem' }}>
-            <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '8px' }}>⚽ {match.country}</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '8px' }}>{getSportIcon(match.sport || activeSport)} {match.country}</div>
             <div style={{ fontWeight: 500, color: '#fff', marginBottom: '4px' }}>{match.home}</div>
             <div style={{ fontWeight: 500, color: '#fff' }}>{match.away}</div>
           </div>
@@ -264,8 +282,8 @@ const JackpotPanel = () => {
   );
 };
 
-// ── Sports sub-nav (used when activeSection is a sports section) ──────────────
-const SportsContent = ({ bets, toggleBet, activeSection, setActiveSection }) => {
+// ── Sports layout specific views ─────────────────────────────────────────────
+const SportsContent = ({ activeSport, bets, toggleBet, activeSection, setActiveSection }) => {
   // Sync sub-nav with top-level section
   const sectionToSubNav = {
     'Home':        'Highlights',
@@ -392,7 +410,7 @@ const SportsContent = ({ bets, toggleBet, activeSection, setActiveSection }) => 
       {activeSubNav === 'Jackpots' && <JackpotPanel />}
       {activeSubNav === 'Aviator'  && <AviatorGame />}
       {['Highlights','Upcoming','Countries','Zoom Soccer','Turbo','Today','1x2'].includes(activeSubNav) && (
-        <HighlightsPanel bets={bets} toggleBet={toggleBet} />
+        <HighlightsPanel activeSport={activeSport} bets={bets} toggleBet={toggleBet} />
       )}
 
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
@@ -401,7 +419,7 @@ const SportsContent = ({ bets, toggleBet, activeSection, setActiveSection }) => 
 };
 
 // ── Main content wrapper — top-level router ───────────────────────────────────
-const MainContent = ({ bets, toggleBet, activeSection, setActiveSection }) => {
+const MainContent = ({ activeSport, bets, toggleBet, activeSection, setActiveSection }) => {
   switch (activeSection) {
     case 'Casino':       return <CasinoPage />;
     case 'Virtuals':     return <VirtualsPage bets={bets} toggleBet={toggleBet} />;
@@ -422,6 +440,7 @@ const MainContent = ({ bets, toggleBet, activeSection, setActiveSection }) => {
       // Sports layout sections all share the SportsContent sub-router
       return (
         <SportsContent
+          activeSport={activeSport}
           bets={bets}
           toggleBet={toggleBet}
           activeSection={activeSection}
