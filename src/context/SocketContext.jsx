@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 
 const SocketContext = createContext(null);
-const SOCKET_URL = import.meta.env.PROD ? window.location.origin : 'http://localhost:3001';
+const SOCKET_URL = import.meta.env.PROD ? undefined : 'http://localhost:3001';
 let socketInstance = null;
 
 export const SocketProvider = ({ children }) => {
@@ -21,7 +21,7 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (!socketInstance) {
-      socketInstance = io(SOCKET_URL, { transports: ['websocket'] });
+      socketInstance = io(SOCKET_URL);
     }
     const s = socketInstance;
     setSocket(s);
