@@ -459,7 +459,7 @@ export const LiveScorePage = () => {
 };
 
 // ─── Ligi Bigi Page ───────────────────────────────────────────────────────────
-export const LigiBigiPage = () => {
+export const LigiBigiPage = ({ setActiveJackpot }) => {
   const { jackpot } = useSocket();
   const { formatCurrency } = useUser();
   const liga = jackpot?.liga;
@@ -474,7 +474,7 @@ export const LigiBigiPage = () => {
             {formatCurrency(liga.amount)}
           </div>
           <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '2rem' }}>Jackpot amount — updates live</div>
-          <button className="btn btn-primary" style={{ padding: '14px 40px', fontWeight: 800, fontSize: '16px', borderRadius: '8px' }} onClick={() => alert('Loading Ligi Bigi prediction slip...')}>
+          <button className="btn btn-primary" style={{ padding: '14px 40px', fontWeight: 800, fontSize: '16px', borderRadius: '8px' }} onClick={() => setActiveJackpot('liga')}>
             Play Ligi Bigi →
           </button>
         </>

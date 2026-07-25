@@ -5,12 +5,14 @@ import Navbar from './components/Navbar';
 import SidebarLeft from './components/SidebarLeft';
 import MainContent from './components/MainContent';
 import BetslipRight from './components/BetslipRight';
+import JackpotModal from './components/JackpotModal';
 import BetTracker from './components/BetTracker';
 
 function AppInner() {
   const [bets, setBets] = useState([]);
   const [activeSection, setActiveSection] = useState('Home');
   const [activeSport, setActiveSport] = useState('Soccer');
+  const [activeJackpot, setActiveJackpot] = useState(null);
   const { virtualSports } = useSocket();
   const { setMyBets, myBets, user, isExcluded } = useUser();
   const prevBetStatuses = useRef({});
@@ -108,15 +110,19 @@ function AppInner() {
       {isSportsLayout ? (
         <div className="app-layout">
           <SidebarLeft activeSport={activeSport} setActiveSport={setActiveSport} setActiveSection={setActiveSection} />
-          <MainContent activeSport={activeSport} bets={bets} toggleBet={toggleBet} activeSection={activeSection} setActiveSection={setActiveSection} />
+          <MainContent activeSport={activeSport} bets={bets} toggleBet={toggleBet} activeSection={activeSection} setActiveSection={setActiveSection} setActiveJackpot={setActiveJackpot} />
           <div style={{ position: 'sticky', top: '80px', alignSelf: 'start', height: 'max-content' }}>
             <BetslipRight bets={bets} clearBets={clearBets} removeBet={removeBet} />
           </div>
         </div>
       ) : (
         <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '2rem 1rem' }}>
-          <MainContent activeSport={activeSport} bets={bets} toggleBet={toggleBet} activeSection={activeSection} setActiveSection={setActiveSection} />
+          <MainContent activeSport={activeSport} bets={bets} toggleBet={toggleBet} activeSection={activeSection} setActiveSection={setActiveSection} setActiveJackpot={setActiveJackpot} />
         </div>
+      )}
+
+      {activeJackpot && (
+        <JackpotModal jackpotKey={activeJackpot} onClose={() => setActiveJackpot(null)} />
       )}
 
       {/* Floating Bet Tracker (always visible when user has bets) */}

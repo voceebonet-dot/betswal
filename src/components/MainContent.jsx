@@ -189,7 +189,7 @@ const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
 };
 
 // ── Jackpots panel ────────────────────────────────────────────────────────────
-const JackpotPanel = () => {
+const JackpotPanel = ({ setActiveJackpot }) => {
   const { jackpot } = useSocket();
   const [prevAmounts, setPrevAmounts] = React.useState({});
   const prevRef = React.useRef({});
@@ -272,7 +272,7 @@ const JackpotPanel = () => {
               width: '100%', padding: '14px', fontWeight: 800, fontSize: '15px',
               backgroundColor: color, color: '#000', borderRadius: '8px',
               boxShadow: `0 4px 15px ${color}66`
-            }} onClick={() => alert(`Opening prediction screen for ${j.name}...`)}>
+            }} onClick={() => setActiveJackpot(key)}>
               Play {j.name} Now
             </button>
           </div>
@@ -283,7 +283,7 @@ const JackpotPanel = () => {
 };
 
 // ── Sports layout specific views ─────────────────────────────────────────────
-const SportsContent = ({ activeSport, bets, toggleBet, activeSection, setActiveSection }) => {
+const SportsContent = ({ activeSport, bets, toggleBet, activeSection, setActiveSection, setActiveJackpot }) => {
   // Sync sub-nav with top-level section
   const sectionToSubNav = {
     'Home':        'Highlights',
@@ -407,7 +407,7 @@ const SportsContent = ({ activeSport, bets, toggleBet, activeSection, setActiveS
 
       {/* Panel content */}
       {activeSubNav === 'Live'     && <LivePanel      bets={bets} toggleBet={toggleBet} />}
-      {activeSubNav === 'Jackpots' && <JackpotPanel />}
+      {activeSubNav === 'Jackpots' && <JackpotPanel setActiveJackpot={setActiveJackpot} />}
       {activeSubNav === 'Aviator'  && <AviatorGame />}
       {['Highlights','Upcoming','Countries','Zoom Soccer','Turbo','Today','1x2'].includes(activeSubNav) && (
         <HighlightsPanel activeSport={activeSport} bets={bets} toggleBet={toggleBet} />
@@ -419,12 +419,12 @@ const SportsContent = ({ activeSport, bets, toggleBet, activeSection, setActiveS
 };
 
 // ── Main content wrapper — top-level router ───────────────────────────────────
-const MainContent = ({ activeSport, bets, toggleBet, activeSection, setActiveSection }) => {
+const MainContent = ({ activeSport, bets, toggleBet, activeSection, setActiveSection, setActiveJackpot }) => {
   switch (activeSection) {
     case 'Casino':       return <CasinoPage />;
     case 'Virtuals':     return <VirtualsPage bets={bets} toggleBet={toggleBet} />;
     case 'Crash Games':  return <CrashGamesPage setActiveSection={setActiveSection} />;
-    case 'Ligi Bigi':    return <LigiBigiPage />;
+    case 'Ligi Bigi':    return <LigiBigiPage setActiveJackpot={setActiveJackpot} />;
     case 'Shikisha Bet': return <ShikishaPage bets={bets} toggleBet={toggleBet} />;
     case 'BetsWal Fasta': return <BetsWalFastaPage bets={bets} toggleBet={toggleBet} />;
     case 'Promotions':   return <PromotionsPage />;
@@ -445,6 +445,7 @@ const MainContent = ({ activeSport, bets, toggleBet, activeSection, setActiveSec
           toggleBet={toggleBet}
           activeSection={activeSection}
           setActiveSection={setActiveSection}
+          setActiveJackpot={setActiveJackpot}
         />
       );
   }
