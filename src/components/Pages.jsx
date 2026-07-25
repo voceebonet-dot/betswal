@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { useUser, COUNTRIES } from '../context/UserContext';
+import CasinoModal from './CasinoModal';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtCountdown = (s) => {
@@ -16,6 +17,7 @@ export const CasinoPage = () => {
   const prev = React.useRef({});
   const [grew, setGrew] = React.useState({});
   const [catFilter, setCatFilter] = React.useState('All');
+  const [activeGame, setActiveGame] = React.useState(null);
 
   React.useEffect(() => {
     if (!casinoActivity.length) return;
@@ -113,7 +115,7 @@ export const CasinoPage = () => {
             animationDelay: `${Math.min(idx * 0.04, 0.4)}s`,
             position: 'relative', overflow: 'hidden'
           }}
-          onClick={() => alert(`Loading ${g.name}...`)}
+          onClick={() => setActiveGame(g)}
           onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = `0 10px 28px ${g.colour}33`; e.currentTarget.style.borderColor = g.colour + '66'; }}
           onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = grew[g.id] ? `0 0 18px ${g.colour}44` : 'none'; e.currentTarget.style.borderColor = g.colour + '2a'; }}>
             {/* HOT / NEW badges */}
@@ -127,10 +129,14 @@ export const CasinoPage = () => {
               <span style={{ color: '#fecd08', fontSize: '10px' }}>{g.cat}</span>
             </div>
             {g.lastWinAmount ? <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '10px' }}>Last win: <span style={{ color: '#fecd08' }}>{formatCurrency(g.lastWinAmount)}</span></div> : <div style={{ marginBottom: '10px', height: '15px' }} />}
-            <button className="btn btn-primary" style={{ width: '100%', padding: '7px', fontWeight: 700, fontSize: '12px', borderRadius: '6px' }} onClick={(e) => { e.stopPropagation(); alert(`Loading ${g.name}...`); }}>Play Now</button>
+            <button className="btn btn-primary" style={{ width: '100%', padding: '7px', fontWeight: 700, fontSize: '12px', borderRadius: '6px' }} onClick={(e) => { e.stopPropagation(); setActiveGame(g); }}>Play Now</button>
           </div>
         ))}
       </div>
+      
+      {/* Casino Game Modal */}
+      <CasinoModal game={activeGame} onClose={() => setActiveGame(null)} />
+      
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
     </div>
   );
