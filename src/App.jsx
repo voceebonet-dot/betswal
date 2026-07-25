@@ -100,7 +100,7 @@ function AppInner() {
   const removeBet = (id) => setBets(prev => prev.filter(b => b.matchId !== id));
 
   const sportsLayout = ['Home', 'Live', 'Jackpots', 'Shikisha Bet', 'Aviator',
-    'Ligi Bigi', 'Virtuals', 'Betika Fasta', 'Crash Games', 'Upcoming', 'Countries'];
+    'Ligi Bigi', 'Virtuals', 'BetsWal Fasta', 'Betika Fasta', 'Crash Games', 'Upcoming', 'Countries'];
   const isSportsLayout = sportsLayout.some(s => activeSection === s || activeSection.startsWith(s));
 
   return (
