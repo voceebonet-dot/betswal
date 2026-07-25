@@ -227,8 +227,8 @@ export const CrashGamesPage = ({ setActiveSection }) => {
   );
 };
 
-// ─── StarBet Fasta Page ────────────────────────────────────────────────────────
-export const StarBetFastaPage = ({ bets = [], toggleBet = () => {} }) => {
+// ─── BetsWal Fasta Page ────────────────────────────────────────────────────────
+export const BetsWalFastaPage = ({ bets = [], toggleBet = () => {} }) => {
   const { fastaMarkets, connected } = useSocket();
   const prevOdds = useRef({});
   const [oddsDir, setOddsDir] = useState({});
@@ -260,7 +260,7 @@ export const StarBetFastaPage = ({ bets = [], toggleBet = () => {} }) => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
-          <h2 style={{ fontWeight: 800, fontSize: '22px', color: '#fff' }}>⚡ StarBet Fasta</h2>
+          <h2 style={{ fontWeight: 800, fontSize: '22px', color: '#fff' }}>⚡ BetsWal Fasta</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>Ultra-fast 60-second markets — live odds every second</p>
         </div>
         <div style={{ fontSize: '12px', color: connected ? '#28a745' : '#dc3545', display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -498,7 +498,7 @@ export const PromotionsPage = () => {
 export const AppPage = () => (
   <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
     <div style={{ fontSize: '80px', marginBottom: '1rem' }}>📱</div>
-    <h2 style={{ fontWeight: 800, fontSize: '28px', color: '#fff', marginBottom: '1rem' }}>Get the StarBet App</h2>
+    <h2 style={{ fontWeight: 800, fontSize: '28px', color: '#fff', marginBottom: '1rem' }}>Get the BetsWal App</h2>
     <p style={{ color: 'var(--text-muted)', maxWidth: '400px', margin: '0 auto 2rem', lineHeight: 1.7 }}>
       Bet on the go — faster, lighter, and smarter. Available on Android and iOS.
     </p>
@@ -516,10 +516,33 @@ export const AppPage = () => (
   </div>
 );
 
-// ─── Auth Page ────────────────────────────────────────────────────────────────
+// ─── Auth Page ────────────────────────────────────────────────────────────────────
 export const AuthPage = ({ mode = 'login', setActiveSection }) => {
   const isLogin = mode === 'login';
-  const { country, changeCountry } = useUser();
+  const { country, changeCountry, register, login } = useUser();
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = () => {
+    setError('');
+    if (!phone.trim() || !password.trim()) { setError('Phone and password are required.'); return; }
+    if (!isLogin && !name.trim()) { setError('Full name is required.'); return; }
+    setLoading(true);
+    setTimeout(() => {
+      const result = isLogin
+        ? login(phone.trim(), password)
+        : register(name.trim(), phone.trim(), password, country.id);
+      setLoading(false);
+      if (result.ok) {
+        setActiveSection('Home');
+      } else {
+        setError(result.error || 'Something went wrong.');
+      }
+    }, 400);
+  };
   return (
     <div className="glass-panel animate-enter" style={{ maxWidth: '400px', margin: '3rem auto', padding: '2.5rem 2rem', borderRadius: '16px' }}>
       <h2 style={{ textAlign: 'center', fontWeight: 800, fontSize: '22px', marginBottom: '1.5rem' }}>
@@ -547,7 +570,7 @@ export const AuthPage = ({ mode = 'login', setActiveSection }) => {
             <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Full Name</label>
             <div className="auth-input-container">
               <i>👤</i>
-              <input type="text" className="glow-focus auth-input" placeholder="John Doe" style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
+              <input type="text" className="glow-focus auth-input" placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
             </div>
           </div>
         </>
@@ -556,24 +579,181 @@ export const AuthPage = ({ mode = 'login', setActiveSection }) => {
         <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Phone Number</label>
         <div className="auth-input-container">
           <i>📱</i>
-          <input type="tel" className="glow-focus auth-input" placeholder="+254 7XX XXX XXX" style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
+          <input type="tel" className="glow-focus auth-input" placeholder="+254 7XX XXX XXX" value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
         </div>
       </div>
       <div style={{ marginBottom: '1.5rem' }}>
         <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Password</label>
         <div className="auth-input-container">
           <i>🔒</i>
-          <input type="password" className="glow-focus auth-input" placeholder="••••••••" style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
+          <input type="password" className="glow-focus auth-input" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
         </div>
       </div>
-      <button className="btn btn-primary pulse-btn" style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginTop: '0.5rem' }}>
-        {isLogin ? 'Login' : 'Create Account'}
+      {error && (
+        <div style={{ backgroundColor: 'rgba(220,53,69,0.12)', border: '1px solid rgba(220,53,69,0.35)', borderRadius: '6px', padding: '8px 12px', color: '#dc3545', fontSize: '12px', marginBottom: '1rem', textAlign: 'center' }}>
+          ⚠️ {error}
+        </div>
+      )}
+      <button className="btn btn-primary pulse-btn" style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginTop: '0.5rem', opacity: loading ? 0.7 : 1 }} onClick={handleSubmit} disabled={loading}>
+        {loading ? '⏳ Please wait…' : isLogin ? 'Login' : 'Create Account'}
       </button>
       <div style={{ textAlign: 'center', marginTop: '1rem', fontSize: '13px', color: 'var(--text-muted)' }}>
         {isLogin ? "Don't have an account? " : 'Already have an account? '}
         <span style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }} onClick={() => setActiveSection(isLogin ? 'Register' : 'Login')}>
           {isLogin ? 'Register' : 'Login'}
         </span>
+      </div>
+    </div>
+  );
+};
+
+
+// --- Deposit Page ---
+export const DepositPage = ({ setActiveSection }) => {
+  const { user, wallet, deposit, formatCurrency, country } = useUser();
+  const [amount, setAmount] = React.useState('');
+  const [msg, setMsg] = React.useState('');
+  const quickAmounts = [100, 250, 500, 1000, 2000, 5000];
+  if (!user) return (
+    <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+      <div style={{ fontSize: '60px', marginBottom: '1rem' }}>🔐</div>
+      <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>You must be logged in to deposit.</p>
+      <button className='btn btn-primary' onClick={() => setActiveSection('Login')}>Login Now</button>
+    </div>
+  );
+  const handleDeposit = () => {
+    const result = deposit(parseFloat(amount));
+    if (result.ok) { setMsg('Deposited!'); setAmount(''); }
+    else setMsg('Error: ' + result.error);
+    setTimeout(() => setMsg(''), 3000);
+  };
+  return (
+    <div style={{ maxWidth: '480px', margin: '2rem auto' }}>
+      <h2 style={{ fontWeight: 800, fontSize: '22px', color: '#fff', marginBottom: '0.5rem' }}>💳 Deposit Funds</h2>
+      <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '1.5rem' }}>Balance: <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{formatCurrency(wallet)}</span></p>
+      <div className='glass-panel' style={{ padding: '1.5rem', borderRadius: '12px' }}>
+        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Amount ({country.symbol})</label>
+        <input type='number' min='10' className='glow-focus' value={amount} onChange={e => setAmount(e.target.value)} placeholder='Enter amount' style={{ width: '100%', padding: '12px', backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '8px', outline: 'none', fontSize: '16px', marginBottom: '1rem' }} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '1.25rem' }}>
+          {quickAmounts.map(a => <button key={a} className='btn' onClick={() => setAmount(a.toString())} style={{ backgroundColor: amount == a ? 'var(--primary)' : 'var(--bg-btn)', color: amount == a ? '#000' : 'var(--text-main)', fontWeight: 600 }}>{country.symbol}{a}</button>)}
+        </div>
+        <button className='btn btn-primary' style={{ width: '100%', padding: '14px', fontWeight: 800 }} onClick={handleDeposit}>Deposit Now</button>
+        {msg && <div style={{ marginTop: '1rem', textAlign: 'center', fontWeight: 600, color: '#28a745' }}>{msg}</div>}
+      </div>
+    </div>
+  );
+};
+
+// --- Withdraw Page ---
+export const WithdrawPage = ({ setActiveSection }) => {
+  const { user, wallet, withdraw, formatCurrency, country } = useUser();
+  const [amount, setAmount] = React.useState('');
+  const [msg, setMsg] = React.useState('');
+  if (!user) return (
+    <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+      <div style={{ fontSize: '60px', marginBottom: '1rem' }}>🔐</div>
+      <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>You must be logged in to withdraw.</p>
+      <button className='btn btn-primary' onClick={() => setActiveSection('Login')}>Login Now</button>
+    </div>
+  );
+  const handleWithdraw = () => {
+    const result = withdraw(parseFloat(amount));
+    if (result.ok) { setMsg('Withdrawal requested!'); setAmount(''); }
+    else setMsg('Error: ' + result.error);
+    setTimeout(() => setMsg(''), 3000);
+  };
+  return (
+    <div style={{ maxWidth: '480px', margin: '2rem auto' }}>
+      <h2 style={{ fontWeight: 800, fontSize: '22px', color: '#fff', marginBottom: '0.5rem' }}>💸 Withdraw Funds</h2>
+      <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '1.5rem' }}>Available: <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{formatCurrency(wallet)}</span></p>
+      <div className='glass-panel' style={{ padding: '1.5rem', borderRadius: '12px' }}>
+        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Amount ({country.symbol})</label>
+        <input type='number' min='10' className='glow-focus' value={amount} onChange={e => setAmount(e.target.value)} placeholder='Enter amount' style={{ width: '100%', padding: '12px', backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '8px', outline: 'none', fontSize: '16px', marginBottom: '1.25rem' }} />
+        <button className='btn' style={{ width: '100%', padding: '14px', fontWeight: 800, backgroundColor: '#dc3545', color: '#fff' }} onClick={handleWithdraw}>Withdraw</button>
+        {msg && <div style={{ marginTop: '1rem', textAlign: 'center', fontWeight: 600 }}>{msg}</div>}
+      </div>
+    </div>
+  );
+};
+
+// --- Account Page ---
+export const AccountPage = ({ setActiveSection }) => {
+  const { user, wallet, formatCurrency, transactions } = useUser();
+  if (!user) return (
+    <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+      <button className='btn btn-primary' onClick={() => setActiveSection('Login')}>Login to view account</button>
+    </div>
+  );
+  return (
+    <div style={{ maxWidth: '600px', margin: '2rem auto' }}>
+      <h2 style={{ fontWeight: 800, fontSize: '22px', color: '#fff', marginBottom: '1.5rem' }}>👤 My Account</h2>
+      <div className='glass-panel' style={{ padding: '1.5rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#fecd08', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '22px', color: '#000' }}>{user.name ? user.name[0].toUpperCase() : '?'}</div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '18px', color: '#fff' }}>{user.name || 'User'}</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{user.phone}</div>
+          </div>
+        </div>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '1rem' }}>Balance: <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{formatCurrency(wallet)}</span></p>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button className='btn btn-primary' style={{ flex: 1 }} onClick={() => setActiveSection('Deposit')}>+ Deposit</button>
+          <button className='btn' style={{ flex: 1, backgroundColor: 'var(--bg-btn)', color: 'var(--text-main)' }} onClick={() => setActiveSection('Withdraw')}>Withdraw</button>
+        </div>
+      </div>
+      <div className='glass-panel' style={{ padding: '1.5rem', borderRadius: '12px' }}>
+        <div style={{ fontWeight: 700, marginBottom: '1rem' }}>Transaction History</div>
+        {transactions.length === 0 ? <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1rem 0' }}>No transactions yet.</p>
+          : transactions.slice(0, 15).map((t, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '13px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>{t.type === 'deposit' ? '💳 Deposit' : t.type === 'winnings' ? '🏆 Winnings' : t.type === 'bet_stake' ? '🎯 Bet' : '💸 Withdrawal'} — {new Date(t.date).toLocaleDateString()}</span>
+              <span style={{ fontWeight: 700, color: ['deposit','winnings'].includes(t.type) ? '#28a745' : '#dc3545' }}>{['deposit','winnings'].includes(t.type) ? '+' : '-'}{formatCurrency(t.amount)}</span>
+            </div>
+          ))}
+      </div>
+    </div>
+  );
+};
+
+// --- Responsible Gambling Page ---
+export const ResponsiblePage = ({ setActiveSection }) => {
+  const { user, spendLimit, setDailyLimit, setWeeklyLimit, excludeSelf, realityCheck, setRealityCheck } = useUser();
+  const [dailyInput, setDailyInput] = React.useState(spendLimit.daily || '');
+  const [weeklyInput, setWeeklyInput] = React.useState(spendLimit.weekly || '');
+  const [msg, setMsg] = React.useState('');
+  if (!user) return (
+    <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+      <button className='btn btn-primary' onClick={() => setActiveSection('Login')}>Login to manage settings</button>
+    </div>
+  );
+  const save = () => {
+    if (dailyInput) setDailyLimit(dailyInput);
+    if (weeklyInput) setWeeklyLimit(weeklyInput);
+    setMsg('Settings saved!');
+    setTimeout(() => setMsg(''), 2000);
+  };
+  return (
+    <div style={{ maxWidth: '540px', margin: '2rem auto' }}>
+      <h2 style={{ fontWeight: 800, fontSize: '22px', color: '#fff', marginBottom: '0.5rem' }}>🛡️ Responsible Play</h2>
+      <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '1.5rem' }}>Set limits to stay in control.</p>
+      <div className='glass-panel' style={{ padding: '1.5rem', borderRadius: '12px', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div><label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Daily Spend Limit</label><input type='number' value={dailyInput} onChange={e => setDailyInput(e.target.value)} placeholder='e.g. 500' className='glow-focus' style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none' }} /></div>
+        <div><label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Weekly Spend Limit</label><input type='number' value={weeklyInput} onChange={e => setWeeklyInput(e.target.value)} placeholder='e.g. 2000' className='glow-focus' style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none' }} /></div>
+        <div><label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Reality Check (minutes)</label><input type='number' value={realityCheck} onChange={e => setRealityCheck(parseInt(e.target.value) || 0)} placeholder='e.g. 60' className='glow-focus' style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none' }} /></div>
+        <button className='btn btn-primary' style={{ padding: '12px', fontWeight: 700 }} onClick={save}>Save Settings</button>
+        {msg && <div style={{ textAlign: 'center', color: '#28a745', fontWeight: 600 }}>{msg}</div>}
+      </div>
+      <div className='glass-panel' style={{ padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(220,53,69,0.2)' }}>
+        <div style={{ fontWeight: 700, color: '#dc3545', marginBottom: '0.5rem' }}>⛔ Self-Exclusion</div>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '1rem' }}>Exclude yourself from betting. This cannot be reversed.</p>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {[7, 14, 30, 90].map(days => (
+            <button key={days} className='btn' style={{ backgroundColor: 'rgba(220,53,69,0.1)', color: '#dc3545', border: '1px solid rgba(220,53,69,0.3)' }}
+              onClick={() => { if (window.confirm('Self-exclude for ' + days + ' days?')) { excludeSelf(days); setActiveSection('Home'); } }}>
+              {days} Days
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

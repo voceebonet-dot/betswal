@@ -42,7 +42,7 @@ const SidebarLeft = ({ setActiveSection }) => {
         </div>
       ) : (
         <div style={{ backgroundColor: 'rgba(254,205,8,0.06)', border: '1px solid rgba(254,205,8,0.15)', borderRadius: '10px', padding: '10px 12px', marginBottom: '6px', textAlign: 'center' }}>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>Join StarBet to start winning!</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>Join BetsWal to start winning!</div>
           <button onClick={() => setActiveSection('Register')} className="btn btn-primary pulse-btn" style={{ width: '100%', padding: '7px', fontSize: '12px', fontWeight: 700 }}>Register Free</button>
         </div>
       )}

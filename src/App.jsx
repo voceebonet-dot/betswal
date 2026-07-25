@@ -27,7 +27,7 @@ function AppInner() {
       const prev = prevBetStatuses.current[bet.ticketRef];
       if (prev === 'Pending' && bet.status !== 'Pending' && Notification.permission === 'granted') {
         const icon = bet.status === 'Won' ? '🏆' : '❌';
-        new Notification(`${icon} Bet ${bet.status}! — StarBet`, {
+        new Notification(`${icon} Bet ${bet.status}! — BetsWal`, {
           body: bet.status === 'Won'
             ? `You won ${bet.possibleWin}! Ticket: ${bet.ticketRef}`
             : `Better luck next time. Ticket: ${bet.ticketRef}`,

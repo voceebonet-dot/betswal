@@ -521,7 +521,7 @@ const LEADERBOARD_NAMES = [
   { phone: '08****34', flag: '🇺🇬' }, { phone: '07****01', flag: '🇹🇿' },
   { phone: '09****88', flag: '🇰🇪' }, { phone: '07****77', flag: '🇳🇬' },
 ];
-const LEADERBOARD_GAMES = ['Jackpot', 'Aviator', 'Virtual Champions', 'Casino', 'Crash', 'Virtual World Cup', 'StarBet Fasta'];
+const LEADERBOARD_GAMES = ['Jackpot', 'Aviator', 'Virtual Champions', 'Casino', 'Crash', 'Virtual World Cup', 'BetsWal Fasta'];
 setInterval(() => {
   leaderboard = LEADERBOARD_NAMES.slice().sort(() => Math.random() - 0.5).slice(0, 5).map((p, i) => ({
     ...p,
@@ -545,7 +545,7 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  console.log(`🟢 BetSite WebSocket server on port ${PORT}`);
+  console.log(`🟢 BetsWal WebSocket server on port ${PORT}`);
   console.log(`   Events: live_match_update | live_count_update | highlight_update | jackpot_update | aviator_tick | aviator_crashed`);
   console.log(`   Client events: save_betslip | load_betslip | place_bet | aviator_place_bet | aviator_cashout`);
 });

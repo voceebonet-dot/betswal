@@ -4,7 +4,7 @@ import { useUser } from '../context/UserContext';
 
 const BetslipRight = ({ bets, clearBets, removeBet }) => {
   const { socket } = useSocket();
-  const { country, formatCurrency, myBets, addBetToHistory } = useUser();
+  const { country, formatCurrency, myBets, addBetToHistory, user, deductStake, wallet } = useUser();
   const [stake, setStake]         = useState(100);
   const [activeTab, setActiveTab] = useState('Betslip');
   const [codeInput, setCodeInput] = useState('');
@@ -48,14 +48,23 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
   };
 
   const handlePlaceBet = () => {
+    if (!user) {
+      setMessage('⚠️ Please login to place a bet.');
+      return;
+    }
     if (!bets.length || !socket) return;
-    socket.emit('place_bet', { bets, stake: parseFloat(stake) });
+    const stakeNum = parseFloat(stake);
+    if (isNaN(stakeNum) || stakeNum <= 0) { setMessage('❌ Enter a valid stake.'); return; }
+    if (stakeNum > wallet) { setMessage(`❌ Insufficient balance. Your wallet: ${country.symbol} ${wallet}`); return; }
+    const deductResult = deductStake(stakeNum);
+    if (!deductResult.ok) { setMessage(`❌ ${deductResult.error}`); return; }
+    socket.emit('place_bet', { bets, stake: stakeNum });
     socket.once('bet_confirmed', ({ ticketRef, totalOdds: to, possibleWin: pw }) => {
       addBetToHistory(ticketRef, bets, to, stake, pw);
-      setMessage(`🎟️ Bet placed! Ref: ${ticketRef} | Win: ${country.symbol} ${pw}`);
+      setMessage(`🏟️ Bet placed! Ref: ${ticketRef} | Win: ${country.symbol} ${pw}`);
       clearBets();
       setActiveTab('My Bets');
-      setTimeout(() => setMessage(''), 3000); // clear toast after animation
+      setTimeout(() => setMessage(''), 3000);
     });
   };
 

@@ -12,7 +12,7 @@ const NAV_LINKS = [
   { label: 'Casino',        section: 'Casino',       badge: true },
   { label: 'Promotions',    section: 'Promotions' },
   { label: 'Virtuals',      section: 'Virtuals',     badge: true },
-  { label: 'StarBet Fasta', section: 'StarBet Fasta', badge: true },
+  { label: 'BetsWal Fasta', section: 'BetsWal Fasta', badge: true },
   { label: 'Crash Games',   section: 'Crash Games',  badge: true },
   { label: 'Live Score',    section: 'Live Score' },
   { label: 'App',           section: 'App' },
@@ -42,8 +42,8 @@ const Navbar = ({ activeSection, setActiveSection }) => {
         <div className="flex items-center gap-4">
           <div style={{ fontSize: '22px', cursor: 'pointer', color: 'var(--text-muted)', userSelect: 'none' }} onClick={() => handleNav('Home')}>≡</div>
           <div onClick={() => handleNav('Home')} style={{ fontSize: '24px', fontWeight: 900, fontStyle: 'italic', display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', letterSpacing: '-0.5px' }}>
-            <img src="/starbet_logo.png" alt="StarBet Logo" style={{ width: '32px', height: '32px', borderRadius: '50%', boxShadow: '0 0 10px rgba(254,205,8,0.3)' }} />
-            <span style={{ color: '#fecd08' }}>Star</span><span style={{ color: '#86c439' }}>Bet</span>
+            <img src="/starbet_logo.png" alt="BetsWal Logo" style={{ width: '32px', height: '32px', borderRadius: '50%', boxShadow: '0 0 10px rgba(254,205,8,0.3)' }} />
+            <span style={{ color: '#fecd08' }}>Bets</span><span style={{ color: '#86c439' }}>Wal</span>
           </div>
         </div>
 

@@ -3,8 +3,8 @@ import { useSocket } from '../context/SocketContext';
 import AviatorGame from './AviatorGame';
 import {
   CasinoPage, VirtualsPage, CrashGamesPage, LigiBigiPage,
-  ShikishaPage, StarBetFastaPage, PromotionsPage, LiveScorePage,
-  AppPage, AuthPage,
+  ShikishaPage, BetsWalFastaPage, PromotionsPage, LiveScorePage,
+  AppPage, AuthPage, DepositPage, WithdrawPage, AccountPage, ResponsiblePage,
 } from './Pages';
 
 // ── Flashing odds button ──────────────────────────────────────────────────────
@@ -233,7 +233,7 @@ const SportsContent = ({ bets, toggleBet, activeSection, setActiveSection }) => 
     'Aviator':     'Aviator',
     'Ligi Bigi':   'Highlights',
     'Virtuals':    'Highlights',
-    'StarBet Fasta':'Highlights',
+    'BetsWal Fasta':'Highlights',
     'Upcoming':    'Upcoming',
     'Countries':   'Countries',
   };
@@ -278,7 +278,7 @@ const SportsContent = ({ bets, toggleBet, activeSection, setActiveSection }) => 
         }}>
           <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', background: 'var(--primary)', filter: 'blur(100px)', opacity: 0.15 }} />
           <h1 style={{ fontWeight: 900, fontSize: '36px', marginBottom: '8px', zIndex: 1 }}>
-            WELCOME TO <span className="text-gradient-primary">STARBET!</span>
+            WELCOME TO <span className="text-gradient-primary">BETSWAL!</span>
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '15px', maxWidth: '400px', marginBottom: '1.5rem', zIndex: 1 }}>
             Join millions of winners. Bet on your favorite sports, play Aviator, and win massive Jackpots daily.
@@ -367,12 +367,16 @@ const MainContent = ({ bets, toggleBet, activeSection, setActiveSection }) => {
     case 'Crash Games':  return <CrashGamesPage setActiveSection={setActiveSection} />;
     case 'Ligi Bigi':    return <LigiBigiPage />;
     case 'Shikisha Bet': return <ShikishaPage bets={bets} toggleBet={toggleBet} />;
-    case 'StarBet Fasta': return <StarBetFastaPage bets={bets} toggleBet={toggleBet} />;
+    case 'BetsWal Fasta': return <BetsWalFastaPage bets={bets} toggleBet={toggleBet} />;
     case 'Promotions':   return <PromotionsPage />;
     case 'Live Score':   return <LiveScorePage />;
     case 'App':          return <AppPage />;
     case 'Login':        return <AuthPage mode="login"  setActiveSection={setActiveSection} />;
     case 'Register':     return <AuthPage mode="register" setActiveSection={setActiveSection} />;
+    case 'Deposit':      return <DepositPage setActiveSection={setActiveSection} />;
+    case 'Withdraw':     return <WithdrawPage setActiveSection={setActiveSection} />;
+    case 'Account':      return <AccountPage setActiveSection={setActiveSection} />;
+    case 'Responsible':  return <ResponsiblePage setActiveSection={setActiveSection} />;
     default:
       // Sports layout sections all share the SportsContent sub-router
       return (
