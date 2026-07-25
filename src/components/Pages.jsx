@@ -13,10 +13,11 @@ const fmtCountdown = (s) => {
 export const CasinoPage = () => {
   const { casinoActivity, connected } = useSocket();
   const { formatCurrency } = useUser();
-  const prev = useRef({});
-  const [grew, setGrew] = useState({});
+  const prev = React.useRef({});
+  const [grew, setGrew] = React.useState({});
+  const [catFilter, setCatFilter] = React.useState('All');
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!casinoActivity.length) return;
     const newGrew = {};
     casinoActivity.forEach(g => {
@@ -28,72 +29,127 @@ export const CasinoPage = () => {
     return () => clearTimeout(t);
   }, [casinoActivity]);
 
-  const games = casinoActivity.length ? casinoActivity : [
-    { id: 'roulette', name: 'Roulette', icon: '🎡', colour: '#dc3545', players: '...', lastWinAmount: 0 },
-    { id: 'blackjack', name: 'Blackjack', icon: '🃏', colour: '#fecd08', players: '...', lastWinAmount: 0 },
-    { id: 'baccarat', name: 'Baccarat', icon: '🎴', colour: '#00a651', players: '...', lastWinAmount: 0 },
-    { id: 'dragon', name: 'Dragon Tiger', icon: '🐉', colour: '#ff4757', players: '...', lastWinAmount: 0 },
-    { id: 'teenpatti', name: 'Teen Patti', icon: '🤌', colour: '#8e44ad', players: '...', lastWinAmount: 0 },
-    { id: 'spinwin', name: 'Spin & Win', icon: '🎰', colour: '#e67e22', players: '...', lastWinAmount: 0 },
-    { id: 'dice', name: 'Dice', icon: '🎲', colour: '#1abc9c', players: '...', lastWinAmount: 0 },
-    { id: 'hilo', name: 'Hi-Lo', icon: '🔼', colour: '#3498db', players: '...', lastWinAmount: 0 },
+  const ALL_GAMES = [
+    // Live Dealer
+    { id: 'live-roulette',   name: 'Live Roulette',       icon: '🎡', colour: '#dc3545', cat: 'Live Dealer', players: 843, hot: true,  desc: 'European & American tables' },
+    { id: 'live-blackjack',  name: 'Live Blackjack',      icon: '🃏', colour: '#fecd08', cat: 'Live Dealer', players: 612, hot: true,  desc: 'Unlimited & Classic' },
+    { id: 'live-baccarat',   name: 'Live Baccarat',       icon: '🎴', colour: '#00a651', cat: 'Live Dealer', players: 531, hot: true,  desc: 'Speed & Standard' },
+    { id: 'live-dragon',     name: 'Dragon Tiger',        icon: '🐉', colour: '#ff4757', cat: 'Live Dealer', players: 298, hot: false, desc: 'Live Asia favourite' },
+    { id: 'live-poker',      name: 'Casino Hold\'em',     icon: '♠️', colour: '#8e44ad', cat: 'Live Dealer', players: 207, hot: false, desc: 'Live poker vs dealer' },
+    { id: 'live-wheel',      name: 'Dream Catcher',       icon: '🎪', colour: '#e67e22', cat: 'Live Dealer', players: 412, hot: false, desc: 'Money wheel 1x–40x' },
+    { id: 'live-monopoly',   name: 'Monopoly Live',       icon: '🎩', colour: '#3498db', cat: 'Live Dealer', players: 566, hot: true,  desc: 'Wheel + 3D bonus round' },
+    { id: 'live-teenpatti',  name: 'Teen Patti',          icon: '🤌', colour: '#9b59b6', cat: 'Live Dealer', players: 189, hot: false, desc: 'Indian card classic' },
+    // Slots
+    { id: 'slot-gates',      name: 'Gates of Olympus',   icon: '⚡', colour: '#fecd08', cat: 'Slots',       players: 1240, hot: true, desc: '6,000x max win' },
+    { id: 'slot-sweet',      name: 'Sweet Bonanza',       icon: '🍬', colour: '#ff6b81', cat: 'Slots',       players: 987,  hot: true, desc: 'Cluster pays, 21,175x' },
+    { id: 'slot-sugar',      name: 'Sugar Rush',          icon: '🍭', colour: '#f39c12', cat: 'Slots',       players: 654,  hot: false, desc: 'Tumble mechanic' },
+    { id: 'slot-wanted',     name: 'Wanted Dead or Wild', icon: '🤠', colour: '#d35400', cat: 'Slots',       players: 432,  hot: false, desc: 'Wild West 12,345x' },
+    { id: 'slot-fortune',    name: 'Fortune Tiger',       icon: '🐯', colour: '#f1c40f', cat: 'Slots',       players: 721,  hot: true,  desc: 'PG Soft tiger riches' },
+    { id: 'slot-book',       name: 'Book of Dead',        icon: '📖', colour: '#e67e22', cat: 'Slots',       players: 389,  hot: false, desc: 'Egypt adventure' },
+    { id: 'slot-legacy',     name: 'Legacy of Dead',      icon: '🏺', colour: '#c0392b', cat: 'Slots',       players: 287,  hot: false, desc: '5,000x potential' },
+    { id: 'slot-wild',       name: 'Wild West Gold',      icon: '🌵', colour: '#27ae60', cat: 'Slots',       players: 341,  hot: false, desc: 'Sticky wilds bonanza' },
+    // Table Games
+    { id: 'table-craps',     name: 'Craps',               icon: '🎲', colour: '#1abc9c', cat: 'Table',       players: 156, hot: false, desc: 'Classic dice table' },
+    { id: 'table-hilo',      name: 'Hi-Lo',               icon: '🔼', colour: '#3498db', cat: 'Table',       players: 203, hot: false, desc: 'Higher or lower' },
+    { id: 'table-war',       name: 'Casino War',          icon: '⚔️', colour: '#e74c3c', cat: 'Table',       players: 127, hot: false, desc: 'Highest card wins' },
+    { id: 'table-3card',     name: '3 Card Poker',        icon: '🂡', colour: '#8e44ad', cat: 'Table',       players: 98,  hot: false, desc: 'Pair Plus side bet' },
+    // Instant Win
+    { id: 'inst-spinwin',    name: 'Spin & Win',          icon: '🎰', colour: '#e67e22', cat: 'Instant',     players: 534, hot: true,  desc: 'Instant jackpots' },
+    { id: 'inst-scratch',    name: 'Scratch Card',        icon: '🎫', colour: '#16a085', cat: 'Instant',     players: 421, hot: false, desc: 'Reveal your prize' },
+    { id: 'inst-keno',       name: 'Keno',                icon: '🔢', colour: '#2980b9', cat: 'Instant',     players: 312, hot: false, desc: 'Pick 1–10 numbers' },
+    { id: 'inst-bingo',      name: 'Bingo',               icon: '🎯', colour: '#c0392b', cat: 'Instant',     players: 267, hot: false, desc: '75 & 90 ball rooms' },
   ];
+
+  const cats = ['All', 'Live Dealer', 'Slots', 'Table', 'Instant'];
+  const filtered = catFilter === 'All' ? ALL_GAMES : ALL_GAMES.filter(g => g.cat === catFilter);
+
+  // Merge live player data if available
+  const games = filtered.map(g => {
+    const live = casinoActivity.find(a => a.id === g.id);
+    return live ? { ...g, players: live.players, lastWinAmount: live.lastWinAmount } : g;
+  });
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
-          <h2 style={{ fontWeight: 800, fontSize: '22px', color: '#fff' }}>🎰 Casino</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>Live dealer and instant-win games</p>
+          <h2 style={{ fontWeight: 800, fontSize: '24px', color: '#fff' }}>🎰 Casino</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
+            {ALL_GAMES.length} games • Live dealer, slots, table & instant win
+          </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: connected ? '#28a745' : '#dc3545' }}>
           <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: connected ? '#28a745' : '#dc3545', display: 'inline-block', animation: 'pulse 2s infinite' }} />
-          {connected ? 'Live Player Data' : 'Connecting…'}
+          {connected ? 'Live Player Counts' : 'Connecting…'}
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+      {/* Category Filter */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        {cats.map(c => (
+          <button key={c} onClick={() => setCatFilter(c)} className="btn"
+            style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 600, borderRadius: '20px',
+              backgroundColor: catFilter === c ? 'var(--primary)' : 'var(--bg-btn)',
+              color: catFilter === c ? '#000' : 'var(--text-main)',
+              border: catFilter === c ? 'none' : '1px solid var(--border-color)',
+              transition: 'all 0.2s'
+            }}>
+            {c === 'All' ? `All (${ALL_GAMES.length})` : `${c} (${ALL_GAMES.filter(g => g.cat === c).length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Games Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
         {games.map((g, idx) => (
           <div key={g.id} className="animate-enter glass-panel" style={{
-            background: `linear-gradient(135deg, rgba(27,36,46,0.8), rgba(13,25,35,0.8))`,
-            backdropFilter: 'blur(10px)',
-            border: `1px solid ${grew[g.id] ? g.colour : g.colour + '33'}`,
-            borderRadius: '12px', padding: '1.5rem 1rem',
+            background: `linear-gradient(145deg, rgba(27,36,46,0.9), rgba(13,25,35,0.9))`,
+            border: `1px solid ${grew[g.id] ? g.colour : g.colour + '2a'}`,
+            borderRadius: '14px', padding: '1.25rem 1rem',
             textAlign: 'center', cursor: 'pointer',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            boxShadow: grew[g.id] ? `0 0 16px ${g.colour}55` : 'none',
-            animationDelay: `${Math.min(idx * 0.05, 0.5)}s`
+            boxShadow: grew[g.id] ? `0 0 18px ${g.colour}44` : 'none',
+            animationDelay: `${Math.min(idx * 0.04, 0.4)}s`,
+            position: 'relative', overflow: 'hidden'
           }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 8px 24px ${g.colour}44`; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = grew[g.id] ? `0 0 16px ${g.colour}55` : 'none'; }}>
-            <div style={{ fontSize: '44px', marginBottom: '10px' }}>{g.icon}</div>
-            <div style={{ fontWeight: 700, color: g.colour, marginBottom: '6px' }}>{g.name}</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '8px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>🟢 {g.players} playing</span>
-              <span style={{ color: '#28a745', fontWeight: 600 }}>↑</span>
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.boxShadow = `0 10px 28px ${g.colour}33`; e.currentTarget.style.borderColor = g.colour + '66'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = grew[g.id] ? `0 0 18px ${g.colour}44` : 'none'; e.currentTarget.style.borderColor = g.colour + '2a'; }}>
+            {/* HOT / NEW badges */}
+            {g.hot && <div style={{ position: 'absolute', top: '8px', left: '8px', backgroundColor: '#dc3545', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.5px' }}>🔥 HOT</div>}
+            {g.isNew && <div style={{ position: 'absolute', top: '8px', left: '8px', backgroundColor: '#00a651', color: '#fff', fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px' }}>NEW</div>}
+            <div style={{ fontSize: '40px', marginBottom: '8px', marginTop: g.hot ? '12px' : '0' }}>{g.icon}</div>
+            <div style={{ fontWeight: 700, color: g.colour, marginBottom: '4px', fontSize: '13px' }}>{g.name}</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px' }}>{g.desc}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '10px' }}>
+              <span style={{ color: grew[g.id] ? '#28a745' : 'var(--text-muted)', transition: 'color 0.3s' }}>🟢 {g.players.toLocaleString()}</span>
+              <span style={{ color: '#fecd08', fontSize: '10px' }}>{g.cat}</span>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '10px' }}>Last win: <span style={{ color: '#fecd08' }}>{g.lastWinAmount ? formatCurrency(g.lastWinAmount) : '—'}</span></div>
-            <button className="btn btn-primary" style={{ width: '100%', padding: '8px', fontWeight: 700, fontSize: '12px' }}>Play Now</button>
+            {g.lastWinAmount ? <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '10px' }}>Last win: <span style={{ color: '#fecd08' }}>{formatCurrency(g.lastWinAmount)}</span></div> : <div style={{ marginBottom: '10px', height: '15px' }} />}
+            <button className="btn btn-primary" style={{ width: '100%', padding: '7px', fontWeight: 700, fontSize: '12px', borderRadius: '6px' }}>Play Now</button>
           </div>
         ))}
       </div>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
     </div>
   );
-};
-
-// ─── Virtuals Page ────────────────────────────────────────────────────────────
+};\n\n// ─── Virtuals Page ────────────────────────────────────────────────────────────
 export const VirtualsPage = ({ bets = [], toggleBet = () => {} }) => {
   const { virtualSports, connected } = useSocket();
 
   const sports = virtualSports.length ? virtualSports : [
     { id: 'vengland',  name: 'Virtual English League', icon: '⚽', countdown: '--', odds: ['—', '—', '—'], results: [] },
     { id: 'vspain',    name: 'Virtual Spanish League', icon: '⚽', countdown: '--', odds: ['—', '—', '—'], results: [] },
+    { id: 'vitaly',    name: 'Virtual Italian League', icon: '⚽', countdown: '--', odds: ['—', '—', '—'], results: [] },
+    { id: 'vfrance',   name: 'Virtual French League',  icon: '⚽', countdown: '--', odds: ['—', '—', '—'], results: [] },
+    { id: 'vgermany',  name: 'Virtual German League',  icon: '⚽', countdown: '--', odds: ['—', '—', '—'], results: [] },
     { id: 'vchampions',name: 'Virtual Champions',      icon: '🏆', countdown: '--', odds: ['—', '—', '—'], results: [] },
     { id: 'vworld',    name: 'Virtual World Cup',      icon: '🌍', countdown: '--', odds: ['—', '—', '—'], results: [] },
     { id: 'vbasket',   name: 'Virtual Basketball',     icon: '🏀', countdown: '--', odds: ['—', '—', '—'], results: [] },
+    { id: 'vtennis',   name: 'Virtual Tennis',         icon: '🎾', countdown: '--', odds: ['—', '—'], results: [] },
     { id: 'vhorses',   name: 'Virtual Horse Racing',   icon: '🐎', countdown: '--', odds: ['—', '—', '—', '—', '—'], results: [] },
     { id: 'vdogs',     name: 'Virtual Greyhounds',     icon: '🐕', countdown: '--', odds: ['—', '—', '—', '—', '—', '—'], results: [] },
+    { id: 'vmotors',   name: 'Virtual Motor Racing',   icon: '🏎️', countdown: '--', odds: ['—', '—', '—', '—'], results: [] },
   ];
 
   const urgentColour = (cd) => cd <= 10 ? '#dc3545' : cd <= 30 ? '#fecd08' : 'var(--primary)';
@@ -173,25 +229,37 @@ export const VirtualsPage = ({ bets = [], toggleBet = () => {} }) => {
 // ─── Crash Games Page ─────────────────────────────────────────────────────────
 export const CrashGamesPage = ({ setActiveSection }) => {
   const games = [
-    { name: 'Aviator',       icon: '✈️', colour: '#fecd08', desc: 'The original crash game', section: 'Aviator' },
-    { name: 'JetX',          icon: '🚀', colour: '#ff4757', desc: 'Rocket to the moon',      section: null },
-    { name: 'Spaceman',      icon: '👨‍🚀', colour: '#8e44ad', desc: 'Spaceman multiplier',   section: null },
-    { name: 'Cash or Crash', icon: '💰', colour: '#00a651', desc: 'Risk it all?',             section: null },
-    { name: 'Balloon',       icon: '🎈', colour: '#e74c3c', desc: 'Pop before it bursts',    section: null },
-    { name: 'Plinko',        icon: '🔵', colour: '#3498db', desc: 'Drop the ball, win big',  section: null },
+    { name: 'Aviator',       icon: '✈️', colour: '#fecd08', desc: 'The original crash game', section: 'Aviator',    players: 3420,  lastCrash: '1.24x', hot: true },
+    { name: 'JetX',          icon: '🚀', colour: '#ff4757', desc: 'Rocket to the moon',      section: null,         players: 1845,  lastCrash: '4.50x', hot: true },
+    { name: 'Spaceman',      icon: '👨‍🚀', colour: '#8e44ad', desc: 'Spaceman multiplier',   section: null,         players: 1120,  lastCrash: '2.10x', hot: false },
+    { name: 'Cash or Crash', icon: '💰', colour: '#00a651', desc: 'Risk it all?',             section: null,         players: 840,   lastCrash: '7.80x', hot: false },
+    { name: 'Balloon',       icon: '🎈', colour: '#e74c3c', desc: 'Pop before it bursts',    section: null,         players: 1653,  lastCrash: '1.05x', hot: false },
+    { name: 'Plinko',        icon: '🔵', colour: '#3498db', desc: 'Drop the ball, win big',  section: null,         players: 2130,  lastCrash: null,    hot: true },
+    { name: 'Mines',         icon: '💣', colour: '#e67e22', desc: 'Don\'t hit the mine',    section: null,         players: 955,   lastCrash: null,    hot: false },
+    { name: 'Dice',          icon: '🎲', colour: '#1abc9c', desc: 'Roll for the win',        section: null,         players: 1245,  lastCrash: null,    hot: false },
+    { name: 'Limbo',         icon: '📉', colour: '#9b59b6', desc: 'Target multiplier',       section: null,         players: 630,   lastCrash: null,    hot: false },
+    { name: 'Tower',         icon: '🗼', colour: '#f39c12', desc: 'Climb the tower',         section: null,         players: 780,   lastCrash: null,    hot: false },
+    { name: 'Keno',          icon: '🔢', colour: '#d35400', desc: 'Pick your numbers',       section: null,         players: 1450,  lastCrash: null,    hot: false },
+    { name: 'Wheel',         icon: '🎡', colour: '#c0392b', desc: 'Spin the wheel',          section: null,         players: 1100,  lastCrash: null,    hot: false },
   ];
 
   return (
     <div>
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ fontWeight: 800, fontSize: '22px', color: '#fff' }}>🚀 Crash Games</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>High-volatility instant multiplier games</p>
+      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2 style={{ fontWeight: 800, fontSize: '24px', color: '#fff' }}>🚀 Crash Games</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>High-volatility instant multiplier games</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#28a745' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#28a745', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+          Live Network
+        </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.25rem' }}>
         {games.map(g => (
           <div key={g.name} className="crash-card" onClick={() => g.section && setActiveSection(g.section)}
             style={{ 
-              background: 'linear-gradient(135deg, rgba(27,36,46,0.8), rgba(13,25,35,0.8))', 
+              background: 'linear-gradient(135deg, rgba(27,36,46,0.9), rgba(13,25,35,0.9))', 
               backdropFilter: 'blur(10px)',
               border: `1px solid ${g.colour}44`, 
               borderRadius: '16px', 
@@ -214,20 +282,26 @@ export const CrashGamesPage = ({ setActiveSection }) => {
               e.currentTarget.style.boxShadow = 'none'; 
               e.currentTarget.style.border = `1px solid ${g.colour}44`;
             }}>
-            <div style={{ fontSize: '52px', marginBottom: '12px' }}>{g.icon}</div>
-            <div style={{ fontWeight: 700, color: g.colour, marginBottom: '6px' }}>{g.name}</div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>{g.desc}</div>
-            <span style={{ backgroundColor: g.colour + '22', color: g.colour, fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '20px' }}>
-              {g.section ? 'Play Now →' : 'Coming Soon'}
+            {g.hot && <div style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: '#dc3545', color: '#fff', fontSize: '10px', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', letterSpacing: '0.5px' }}>HOT</div>}
+            <div style={{ fontSize: '56px', marginBottom: '14px', filter: `drop-shadow(0 0 10px ${g.colour}88)` }}>{g.icon}</div>
+            <div style={{ fontWeight: 800, color: g.colour, marginBottom: '6px', fontSize: '16px' }}>{g.name}</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>{g.desc}</div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '12px', padding: '0 8px' }}>
+              <span style={{ color: '#28a745' }}>🟢 {g.players.toLocaleString()}</span>
+              {g.lastCrash && <span style={{ color: g.lastCrash.startsWith('1') ? '#dc3545' : '#fecd08' }}>💥 {g.lastCrash}</span>}
+            </div>
+
+            <span style={{ backgroundColor: g.section ? g.colour : g.colour + '22', color: g.section ? '#000' : g.colour, fontSize: '13px', fontWeight: 800, padding: '8px 24px', borderRadius: '8px', display: 'inline-block', width: '100%', transition: 'all 0.2s' }}>
+              {g.section ? 'Play Now' : 'Coming Soon'}
             </span>
           </div>
         ))}
       </div>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
     </div>
   );
-};
-
-// ─── BetsWal Fasta Page ────────────────────────────────────────────────────────
+};\n\n// ─── BetsWal Fasta Page ────────────────────────────────────────────────────────
 export const BetsWalFastaPage = ({ bets = [], toggleBet = () => {} }) => {
   const { fastaMarkets, connected } = useSocket();
   const prevOdds = useRef({});

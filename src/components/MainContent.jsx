@@ -173,10 +173,10 @@ const HighlightsPanel = ({ bets, toggleBet }) => {
 // ── Jackpots panel ────────────────────────────────────────────────────────────
 const JackpotPanel = () => {
   const { jackpot } = useSocket();
-  const [prevAmounts, setPrevAmounts] = useState({});
-  const prevRef = useRef({});
+  const [prevAmounts, setPrevAmounts] = React.useState({});
+  const prevRef = React.useRef({});
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!jackpot) return;
     const newPrev = {};
     Object.entries(jackpot).forEach(([key, j]) => { newPrev[key] = prevRef.current[key]; });
@@ -184,37 +184,78 @@ const JackpotPanel = () => {
     Object.entries(jackpot).forEach(([key, j]) => { prevRef.current[key] = j.amount; });
   }, [jackpot]);
 
-  if (!jackpot) return <div style={{ padding: '2rem', color: 'var(--text-muted)' }}>Loading jackpots…</div>;
-
   const format = (n) => n.toLocaleString('en-KE');
 
+  // Hardcoded placeholders for richer display if socket lacks them
+  const defaultJackpots = {
+    mega: { name: 'Mega Jackpot', games: 17, minStake: 100, currency: 'KES', amount: 345000000, color: '#fecd08', icon: '🏆' },
+    midi: { name: 'Midi Jackpot', games: 15, minStake: 50, currency: 'KES', amount: 15000000, color: '#3498db', icon: '💰' },
+    mini: { name: 'Mini Jackpot', games: 13, minStake: 20, currency: 'KES', amount: 2500000, color: '#e74c3c', icon: '🎯' }
+  };
+
+  // merge live with default
+  const displayJackpots = jackpot || defaultJackpots;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {Object.entries(jackpot).map(([key, j]) => {
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div style={{ marginBottom: '0.5rem' }}>
+        <h2 style={{ fontWeight: 800, fontSize: '24px', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '28px' }}>💰</span> Jackpots
+        </h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>Predict correctly and win massive prizes</p>
+      </div>
+      
+      {Object.entries(displayJackpots).map(([key, j], i) => {
         const grew = prevAmounts[key] != null && j.amount > prevAmounts[key];
+        const color = j.color || (i === 0 ? '#fecd08' : i === 1 ? '#3498db' : '#e74c3c');
+        const icon = j.icon || (i === 0 ? '🏆' : i === 1 ? '💰' : '🎯');
+        
         return (
-          <div key={key} style={{
-            background: 'linear-gradient(135deg, #1b242e, #2a3746)',
-            border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1.5rem',
+          <div key={key} className="glass-panel" style={{
+            background: `linear-gradient(135deg, rgba(27,36,46,0.9), rgba(13,25,35,0.9))`,
+            border: `1px solid ${color}44`, 
+            borderRadius: '16px', 
+            padding: '1.5rem',
+            position: 'relative',
+            overflow: 'hidden',
+            boxShadow: grew ? `0 0 20px ${color}44` : 'none',
+            transition: 'all 0.3s'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-              <div>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>{j.games} Games</div>
-                <div style={{ fontWeight: 700, fontSize: '18px', color: '#fff' }}>{j.name}</div>
+            <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '120px', opacity: 0.05, filter: `drop-shadow(0 0 20px ${color})` }}>
+              {icon}
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', position: 'relative', zIndex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ fontSize: '32px', background: `${color}22`, width: '56px', height: '56px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${color}44` }}>
+                  {icon}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '20px', color: '#fff', marginBottom: '4px' }}>{j.name}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    <span style={{ color: color, fontWeight: 700 }}>{j.games}</span> Matches • Min Stake: {j.currency} {j.minStake}
+                  </div>
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>Min Stake: {j.currency} {j.minStake}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Current Prize</div>
                 <div style={{
-                  fontWeight: 800, fontSize: '22px',
-                  color: grew ? '#28a745' : 'var(--secondary)',
-                  transition: 'color 0.5s'
+                  fontWeight: 900, fontSize: '28px',
+                  color: grew ? '#28a745' : color,
+                  textShadow: `0 0 10px ${grew ? '#28a745' : color}66`,
+                  transition: 'color 0.5s, text-shadow 0.5s'
                 }}>
                   {j.currency} {format(j.amount)} {grew && '🔥'}
                 </div>
               </div>
             </div>
-            <button className="btn btn-primary" style={{ width: '100%', padding: '10px', fontWeight: 700 }}>
-              Play {j.name}
+            
+            <button className="btn pulse-btn" style={{ 
+              width: '100%', padding: '14px', fontWeight: 800, fontSize: '15px',
+              backgroundColor: color, color: '#000', borderRadius: '8px',
+              boxShadow: `0 4px 15px ${color}66`
+            }}>
+              Play {j.name} Now
             </button>
           </div>
         );
