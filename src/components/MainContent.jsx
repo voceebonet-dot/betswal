@@ -321,9 +321,27 @@ const SportsContent = ({ bets, toggleBet, activeSection, setActiveSection }) => 
         <div className="flex items-center justify-between" style={{ marginBottom: '1rem' }}>
           <button className="btn" style={{ backgroundColor: 'var(--bg-btn)', color: 'var(--text-main)' }}>⚙️ Filters ⌄</button>
           <div className="flex gap-2">
-            <button className="btn" style={{ backgroundColor: 'var(--bg-btn)', color: 'var(--text-main)' }}>Today ⌄</button>
-            <button className="btn" style={{ backgroundColor: 'var(--bg-btn)', color: 'var(--text-main)' }}>Highlights ⌄</button>
-            <button className="btn" style={{ backgroundColor: 'var(--bg-btn)', color: 'var(--text-main)' }}>1x2 ⌄</button>
+            <button 
+              className="btn" 
+              style={{ backgroundColor: activeSubNav === 'Today' ? 'var(--primary)' : 'var(--bg-btn)', color: activeSubNav === 'Today' ? '#000' : 'var(--text-main)' }}
+              onClick={() => setActiveSubNav('Today')}
+            >
+              Today ⌄
+            </button>
+            <button 
+              className="btn" 
+              style={{ backgroundColor: activeSubNav === 'Highlights' ? 'var(--primary)' : 'var(--bg-btn)', color: activeSubNav === 'Highlights' ? '#000' : 'var(--text-main)' }}
+              onClick={() => setActiveSubNav('Highlights')}
+            >
+              Highlights ⌄
+            </button>
+            <button 
+              className="btn" 
+              style={{ backgroundColor: activeSubNav === '1x2' ? 'var(--primary)' : 'var(--bg-btn)', color: activeSubNav === '1x2' ? '#000' : 'var(--text-main)' }}
+              onClick={() => setActiveSubNav('1x2')}
+            >
+              1x2 ⌄
+            </button>
           </div>
         </div>
       )}
@@ -332,7 +350,7 @@ const SportsContent = ({ bets, toggleBet, activeSection, setActiveSection }) => 
       {activeSubNav === 'Live'     && <LivePanel      bets={bets} toggleBet={toggleBet} />}
       {activeSubNav === 'Jackpots' && <JackpotPanel />}
       {activeSubNav === 'Aviator'  && <AviatorGame />}
-      {['Highlights','Upcoming','Countries','Zoom Soccer','Turbo'].includes(activeSubNav) && (
+      {['Highlights','Upcoming','Countries','Zoom Soccer','Turbo','Today','1x2'].includes(activeSubNav) && (
         <HighlightsPanel bets={bets} toggleBet={toggleBet} />
       )}
 
