@@ -450,11 +450,15 @@ io.on('connection', (socket) => {
     }
     if (!Array.isArray(bets) || bets.length === 0 || bets.length > 50) return;
 
-    // Generate a random 6-char code
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Generate a unique 6-char code
+    let code;
+    do {
+      code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    } while (sharedBetslips[code]);
+
     sharedBetslips[code] = { bets, savedAt: Date.now() };
     socket.emit('betslip_saved', { code });
-    console.log(`💾 Betslip saved: ${code}`);
+    console.log(`💾 Betslip saved with unique code: ${code}`);
   });
 
   socket.on('load_betslip', ({ code }) => {

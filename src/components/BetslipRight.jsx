@@ -141,8 +141,18 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
             {/* Share code */}
             {shareCode && (
               <div style={{ background: 'rgba(134,196,57,0.08)', border: '1px solid rgba(134,196,57,0.3)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '6px', letterSpacing: '0.5px' }}>Share this code</div>
-                <div style={{ fontWeight: 900, fontSize: '22px', letterSpacing: '6px', color: 'var(--primary)', textShadow: '0 0 12px rgba(134,196,57,0.4)' }}>{shareCode}</div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '6px', letterSpacing: '0.5px' }}>Unique Booking Code</div>
+                <div style={{ fontWeight: 900, fontSize: '22px', letterSpacing: '6px', color: 'var(--primary)', textShadow: '0 0 12px rgba(134,196,57,0.4)', marginBottom: '8px' }}>{shareCode}</div>
+                <button
+                  className="btn btn-primary"
+                  style={{ padding: '4px 12px', fontSize: '11px', borderRadius: '6px', fontWeight: 700 }}
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareCode);
+                    flash(`📋 Code ${shareCode} copied!`, 'success');
+                  }}
+                >
+                  📋 Copy Code
+                </button>
               </div>
             )}
 
