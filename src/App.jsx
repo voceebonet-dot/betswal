@@ -137,10 +137,10 @@ function AppInner() {
 
 export default function App() {
   return (
-    <UserProvider>
-      <SocketProvider>
+    <SocketProvider>
+      <UserProvider>
         <AppInner />
-      </SocketProvider>
-    </UserProvider>
+      </UserProvider>
+    </SocketProvider>
   );
 }

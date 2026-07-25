@@ -51,7 +51,8 @@ export const UserProvider = ({ children }) => {
   useEffect(() => { localStorage.setItem('betSiteWallet', JSON.stringify(wallet)); }, [wallet]);
   useEffect(() => { localStorage.setItem('betSiteTx', JSON.stringify(transactions)); }, [transactions]);
 
-  const { socket } = useSocket();
+  const socketCtx = useSocket();
+  const socket = socketCtx?.socket;
 
   // Simulated registered users pool (in real app this would be a server call)
   const getRegistered = () => load('betSiteRegistered', []);
