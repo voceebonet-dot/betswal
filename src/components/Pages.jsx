@@ -486,7 +486,7 @@ export const LigiBigiPage = ({ setActiveJackpot }) => {
 };
 
 // ─── Shikisha Bet Page ────────────────────────────────────────────────────────
-export const ShikishaPage = () => {
+export const ShikishaPage = ({ bets = [], toggleBet = () => {} }) => {
   const { highlights } = useSocket();
   const matches = highlights.slice(0, 5);
 
@@ -503,12 +503,26 @@ export const ShikishaPage = () => {
             <div style={{ fontWeight: 600, color: '#fff' }}>{m.home} vs {m.away}</div>
           </div>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {[['0-0','9.5'],['1-0','4.2'],['0-1','5.1'],['1-1','6.3'],['2-0','7.8'],['2-1','6.0']].map(([score, odd]) => (
-              <button key={score} className="odds-btn" style={{ backgroundColor: 'var(--bg-btn)', color: '#fff', minWidth: '54px', fontSize: '12px' }}>
-                <span style={{ fontSize: '9px', color: 'var(--text-muted)', display: 'block' }}>{score}</span>
-                {odd}
-              </button>
-            ))}
+            {[['0-0','9.5'],['1-0','4.2'],['0-1','5.1'],['1-1','6.3'],['2-0','7.8'],['2-1','6.0']].map(([score, odd]) => {
+              const selected = bets.some(b => b.matchId === m.id && b.type === score);
+              return (
+                <button 
+                  key={score} 
+                  className="odds-btn" 
+                  style={{ 
+                    backgroundColor: selected ? 'var(--primary)' : 'var(--bg-btn)', 
+                    color: selected ? '#000' : '#fff', 
+                    minWidth: '54px', 
+                    fontSize: '12px',
+                    borderColor: selected ? 'var(--primary)' : 'rgba(255, 255, 255, 0.1)'
+                  }}
+                  onClick={() => toggleBet(m, score, parseFloat(odd))}
+                >
+                  <span style={{ fontSize: '9px', color: selected ? '#000' : 'var(--text-muted)', display: 'block' }}>{score}</span>
+                  {odd}
+                </button>
+              );
+            })}
           </div>
         </div>
       )) : (
