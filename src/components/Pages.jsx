@@ -133,7 +133,9 @@ export const CasinoPage = () => {
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
     </div>
   );
-};\n\n// ─── Virtuals Page ────────────────────────────────────────────────────────────
+};
+
+// ─── Virtuals Page ────────────────────────────────────────────────────────────
 export const VirtualsPage = ({ bets = [], toggleBet = () => {} }) => {
   const { virtualSports, connected } = useSocket();
 
@@ -301,7 +303,9 @@ export const CrashGamesPage = ({ setActiveSection }) => {
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
     </div>
   );
-};\n\n// ─── BetsWal Fasta Page ────────────────────────────────────────────────────────
+};
+
+// ─── BetsWal Fasta Page ────────────────────────────────────────────────────────
 export const BetsWalFastaPage = ({ bets = [], toggleBet = () => {} }) => {
   const { fastaMarkets, connected } = useSocket();
   const prevOdds = useRef({});
