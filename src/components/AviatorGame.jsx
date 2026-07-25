@@ -26,6 +26,35 @@ const randomBet   = () => [20,50,100,200,500,1000,2000,5000][Math.floor(Math.ran
 const randomName  = () => NAMES[Math.floor(Math.random() * NAMES.length)];
 const randomHash  = () => Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 
+// ─── Emoji Reactions ──────────────────────────────────────────────────────────
+const REACTIONS = ['🔥','💰','🚀','😱','🎯','💎','⚡','🏆'];
+const FloatingReactions = ({ reactions }) => (
+  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+    {reactions.map(r => (
+      <div key={r.id} style={{
+        position: 'absolute', left: `${r.x}%`, bottom: '20%',
+        fontSize: '24px', animation: 'floatUp 2.5s ease-out forwards',
+        filter: 'drop-shadow(0 0 6px rgba(254,205,8,0.8))',
+      }}>{r.emoji}</div>
+    ))}
+  </div>
+);
+
+// ─── Session Stats ────────────────────────────────────────────────────────────
+const useSessionStats = () => {
+  const [stats, setStats] = useState({ rounds: 0, won: 0, lost: 0, totalWin: 0, bigWin: 0 });
+  const record = useCallback((win, amount = 0) => {
+    setStats(prev => ({
+      rounds: prev.rounds + 1,
+      won:    win ? prev.won + 1 : prev.won,
+      lost:   win ? prev.lost : prev.lost + 1,
+      totalWin: prev.totalWin + amount,
+      bigWin: Math.max(prev.bigWin, amount),
+    }));
+  }, []);
+  return { stats, record };
+};
+
 const generatePlayers = (count) =>
   Array.from({ length: count }, (_, i) => ({
     id: i, name: randomName(), bet: randomBet(), cashedAt: null, status: 'waiting',
@@ -161,7 +190,9 @@ const AviatorGraph = ({ multiplier, phase, planePos, setPlanePos }) => {
           ctx.fillText(`${label}x`, 8, yPos + 4);
           ctx.strokeStyle = 'rgba(255,255,255,0.05)';
           ctx.lineWidth = 1;
+          ctx.setLineDash([4, 8]);
           ctx.beginPath(); ctx.moveTo(30, yPos); ctx.lineTo(W, yPos); ctx.stroke();
+          ctx.setLineDash([]);
         }
       });
 
@@ -177,41 +208,53 @@ const AviatorGraph = ({ multiplier, phase, planePos, setPlanePos }) => {
       const crashed = phase === 'crashed';
       const lineColor = crashed ? '#dc3545' : multiplierToColor(multiplier);
 
+      // Helper: draw smooth bezier path through points
+      const drawBezier = () => {
+        ctx.beginPath();
+        ctx.moveTo(scaleX(pts[0].t), scaleY(pts[0].m));
+        for (let i = 1; i < pts.length; i++) {
+          const prev = pts[i - 1], curr = pts[i];
+          const cpX = (scaleX(prev.t) + scaleX(curr.t)) / 2;
+          ctx.bezierCurveTo(cpX, scaleY(prev.m), cpX, scaleY(curr.m), scaleX(curr.t), scaleY(curr.m));
+        }
+      };
+
       // Outer glow
-      ctx.beginPath();
+      drawBezier();
       ctx.strokeStyle = lineColor + '33';
       ctx.lineWidth = 18;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      pts.forEach((p, i) => i === 0 ? ctx.moveTo(scaleX(p.t), scaleY(p.m)) : ctx.lineTo(scaleX(p.t), scaleY(p.m)));
       ctx.stroke();
 
       // Inner glow
-      ctx.beginPath();
+      drawBezier();
       ctx.strokeStyle = lineColor + '66';
       ctx.lineWidth = 8;
-      pts.forEach((p, i) => i === 0 ? ctx.moveTo(scaleX(p.t), scaleY(p.m)) : ctx.lineTo(scaleX(p.t), scaleY(p.m)));
       ctx.stroke();
 
-      // Gradient fill
+      // Gradient fill under bezier
       const grad = ctx.createLinearGradient(0, 0, 0, H);
       grad.addColorStop(0, lineColor + '33');
       grad.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.beginPath();
       ctx.moveTo(scaleX(pts[0].t), H - 25);
-      pts.forEach(p => ctx.lineTo(scaleX(p.t), scaleY(p.m)));
+      for (let i = 1; i < pts.length; i++) {
+        const prev = pts[i - 1], curr = pts[i];
+        const cpX = (scaleX(prev.t) + scaleX(curr.t)) / 2;
+        ctx.bezierCurveTo(cpX, scaleY(prev.m), cpX, scaleY(curr.m), scaleX(curr.t), scaleY(curr.m));
+      }
       ctx.lineTo(scaleX(pts[pts.length - 1].t), H - 25);
       ctx.closePath();
       ctx.fillStyle = grad;
       ctx.fill();
 
-      // Main crisp line
-      ctx.beginPath();
+      // Main crisp bezier line
+      drawBezier();
       ctx.strokeStyle = lineColor;
       ctx.lineWidth = 2.5;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
-      pts.forEach((p, i) => i === 0 ? ctx.moveTo(scaleX(p.t), scaleY(p.m)) : ctx.lineTo(scaleX(p.t), scaleY(p.m)));
       ctx.stroke();
 
       // Report plane position for SVG overlay
@@ -253,6 +296,23 @@ const AviatorGraph = ({ multiplier, phase, planePos, setPlanePos }) => {
       width={860} height={320}
       style={{ width: '100%', height: '320px', display: 'block' }}
     />
+  );
+};
+
+// ─── Stats bar for live panel ─────────────────────────────────────────────────
+const StatsBar = ({ players, country }) => {
+  const total   = players.length;
+  const cashed  = players.filter(p => p.cashedAt).length;
+  const pot     = players.reduce((s, p) => s + p.bet, 0);
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px', padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(0,0,0,0.2)' }}>
+      {[['Players', total], ['Cashed', cashed], ['Total Bet', `${country.symbol}${pot.toLocaleString()}`]].map(([label, val]) => (
+        <div key={label} style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '14px', fontWeight: 800, color: '#fff' }}>{val}</div>
+          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{label}</div>
+        </div>
+      ))}
+    </div>
   );
 };
 
@@ -302,6 +362,7 @@ const LiveBetsFeed = ({ multiplier, phase, onBigWin, country }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+      <StatsBar players={players} country={country} />
       <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 1fr 1fr', padding: '6px 10px 4px', fontSize: '10px', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid rgba(255,255,255,0.04)', marginBottom: '4px' }}>
         <span>Player</span><span style={{ textAlign: 'right' }}>Bet</span>
         <span style={{ textAlign: 'right' }}>@ x</span>
@@ -534,6 +595,7 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
 const AviatorGame = () => {
   const { socket, connected } = useSocket();
   const { country } = useUser();
+  const { stats, record } = useSessionStats();
 
   const [phase,      setPhase]      = useState('betting');
   const [multiplier, setMultiplier] = useState(1.00);
@@ -544,7 +606,17 @@ const AviatorGame = () => {
   const [activeTab,  setActiveTab]  = useState('live');
   const [planePos,   setPlanePos]   = useState(null);
   const [toasts,     setToasts]     = useState([]);
-  const toastId = useRef(0);
+  const [reactions,  setReactions]  = useState([]);
+  const [flashRed,   setFlashRed]   = useState(false);
+  const toastId   = useRef(0);
+  const reactId   = useRef(0);
+
+  const addReaction = useCallback((emoji) => {
+    const id = reactId.current++;
+    const x = 10 + Math.random() * 80;
+    setReactions(prev => [...prev.slice(-6), { id, emoji, x }]);
+    setTimeout(() => setReactions(prev => prev.filter(r => r.id !== id)), 2600);
+  }, []);
 
   const addToast = useCallback((toast) => {
     const id = toastId.current++;
@@ -562,6 +634,11 @@ const AviatorGame = () => {
     const onCountdown = ({ countdown: c }) => setCountdown(c);
     const onCrashed   = ({ crashAt: ca, history: h }) => {
       setCrashAt(ca); setHistory(h); setPhase('crashed'); setPlanePos(null);
+      setFlashRed(true);
+      setTimeout(() => setFlashRed(false), 800);
+      if (ca >= 10) addReaction('🏆');
+      else if (ca >= 5) addReaction('🚀');
+      else if (ca >= 2) addReaction('🔥');
     };
     socket.on('aviator_state',     onState);
     socket.on('aviator_tick',      onTick);
@@ -579,33 +656,56 @@ const AviatorGame = () => {
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', maxWidth: '1120px', margin: '0 auto', userSelect: 'none' }}>
 
-      {/* History row */}
-      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '0.75rem', alignItems: 'center' }}>
-        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginRight: '4px', fontWeight: 600, letterSpacing: '0.5px' }}>HISTORY</span>
-        {history.slice(-16).map((v, i) => (
-          <span key={i} style={{
-            background: crashColour(v) + '1a', color: crashColour(v),
-            fontWeight: 700, fontSize: '11px', padding: '3px 10px',
-            borderRadius: '20px', border: `1px solid ${crashColour(v)}44`,
-            cursor: 'default',
-          }}>
-            {v.toFixed(2)}x
-          </span>
-        ))}
+      {/* History row + session stats */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
+          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginRight: '4px', fontWeight: 600, letterSpacing: '0.5px' }}>HISTORY</span>
+          {history.slice(-14).map((v, i) => (
+            <span key={i} style={{
+              background: crashColour(v) + '1a', color: crashColour(v),
+              fontWeight: 700, fontSize: '11px', padding: '3px 10px',
+              borderRadius: '20px', border: `1px solid ${crashColour(v)}44`, cursor: 'default',
+            }}>
+              {v.toFixed(2)}x
+            </span>
+          ))}
+        </div>
+
+        {/* Session mini-stats */}
+        <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
+          {[['Rounds', stats.rounds], ['Wins', stats.won], ['Best', stats.bigWin ? `${country.symbol}${stats.bigWin}` : '—']].map(([label, val]) => (
+            <div key={label} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: label === 'Wins' && stats.won > 0 ? '#86c439' : '#fff' }}>{val}</div>
+              <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{label}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Main grid: canvas + live bets */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: '0.75rem', marginBottom: '0.75rem' }}>
 
         {/* ── Canvas panel ──────────────────── */}
-        <div style={{ position: 'relative', background: 'radial-gradient(ellipse at 15% 85%, #0a1a28 0%, #060c14 100%)', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 10px 50px rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ position: 'relative', background: 'radial-gradient(ellipse at 15% 85%, #0a1a28 0%, #060c14 100%)', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 10px 50px rgba(0,0,0,0.9)', border: `1px solid ${flashRed ? 'rgba(220,53,69,0.6)' : 'rgba(255,255,255,0.04)'}`, transition: 'border-color 0.3s', boxShadow: flashRed ? '0 0 40px rgba(220,53,69,0.5)' : '0 10px 50px rgba(0,0,0,0.9)' }}>
+          {/* Red flash overlay on crash */}
+          {flashRed && <div style={{ position: 'absolute', inset: 0, background: 'rgba(220,53,69,0.12)', zIndex: 5, pointerEvents: 'none', animation: 'fadeFlash 0.8s ease-out forwards' }} />}
+
           <Stars crashed={phase === 'crashed'} />
           <AviatorGraph multiplier={multiplier} phase={phase} planePos={planePos} setPlanePos={setPlanePos} />
+          <FloatingReactions reactions={reactions} />
 
           {/* SVG Plane overlay */}
           {phase === 'flying' && planePos && (
             <div style={{ position: 'absolute', left: `${planePos.x}px`, top: `${planePos.y}px`, transform: `rotate(${planePos.angle}deg)`, transformOrigin: 'center', pointerEvents: 'none', transition: 'left 0.08s linear, top 0.08s linear' }}>
               <PlaneSVG color={multColor} size={36} />
+            </div>
+          )}
+
+          {/* Pulse rings around multiplier while flying */}
+          {phase === 'flying' && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 2 }}>
+              <div style={{ width: '160px', height: '160px', borderRadius: '50%', border: `2px solid ${multColor}33`, animation: 'pulseRing 1.5s ease-out infinite', position: 'absolute' }} />
+              <div style={{ width: '200px', height: '200px', borderRadius: '50%', border: `1px solid ${multColor}1a`, animation: 'pulseRing 1.5s ease-out 0.5s infinite', position: 'absolute' }} />
             </div>
           )}
 
@@ -655,22 +755,31 @@ const AviatorGame = () => {
         {/* ── Live bets panel ───────────────── */}
         <div style={{ background: '#0b141f', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            {[['live', 'All Bets'], ['my', 'My Bets']].map(([key, label]) => (
-              <button key={key} onClick={() => setActiveTab(key)} style={{ flex: 1, padding: '11px 8px', border: 'none', cursor: 'pointer', background: activeTab === key ? 'rgba(134,196,57,0.06)' : 'transparent', color: activeTab === key ? '#86c439' : 'rgba(255,255,255,0.3)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.5px', borderBottom: activeTab === key ? '2px solid #86c439' : '2px solid transparent', transition: 'all 0.2s' }}>
+            {[['live', 'All Bets'], ['top', 'Top Wins'], ['my', 'My Bets']].map(([key, label]) => (
+              <button key={key} onClick={() => setActiveTab(key)} style={{ flex: 1, padding: '11px 4px', border: 'none', cursor: 'pointer', background: activeTab === key ? 'rgba(134,196,57,0.06)' : 'transparent', color: activeTab === key ? '#86c439' : 'rgba(255,255,255,0.3)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.3px', borderBottom: activeTab === key ? '2px solid #86c439' : '2px solid transparent', transition: 'all 0.2s' }}>
                 {label}
               </button>
             ))}
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-            {activeTab === 'live'
-              ? <LiveBetsFeed multiplier={multiplier} phase={phase} onBigWin={addToast} country={country} />
-              : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'rgba(255,255,255,0.2)', fontSize: '12px', textAlign: 'center', gap: '8px' }}>
-                  <div style={{ fontSize: '32px' }}>✈️</div>
-                  Place a bet to track it here
-                </div>
-              )
-            }
+            {activeTab === 'live' && <LiveBetsFeed multiplier={multiplier} phase={phase} onBigWin={addToast} country={country} />}
+            {activeTab === 'top' && (
+              <div style={{ padding: '8px 0' }}>
+                {history.slice().sort((a,b) => b - a).slice(0,8).map((v, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 12px', borderRadius: '5px', background: i === 0 ? 'rgba(254,205,8,0.06)' : 'transparent' }}>
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>#{i+1}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: crashColour(v) }}>{v.toFixed(2)}x</span>
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{i === 0 ? '👑' : ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {activeTab === 'my' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'rgba(255,255,255,0.2)', fontSize: '12px', textAlign: 'center', gap: '8px' }}>
+                <div style={{ fontSize: '32px' }}>✈️</div>
+                Place a bet to track it here
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -688,11 +797,23 @@ const AviatorGame = () => {
           from { transform: scale(1);    box-shadow: 0 4px 20px rgba(254,205,8,0.5); }
           to   { transform: scale(1.03); box-shadow: 0 6px 35px rgba(254,205,8,0.9); }
         }
-        @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        @keyframes twinkle  { from{opacity:0.1} to{opacity:0.9} }
+        @keyframes pulseRing {
+          0%   { transform: scale(0.85); opacity: 0.6; }
+          100% { transform: scale(1.4);  opacity: 0; }
+        }
+        @keyframes floatUp {
+          0%   { opacity: 1; transform: translateY(0) scale(1); }
+          100% { opacity: 0; transform: translateY(-120px) scale(1.4); }
+        }
+        @keyframes fadeFlash {
+          0%   { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes pulse      { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        @keyframes twinkle    { from{opacity:0.1} to{opacity:0.9} }
         @keyframes flickerRed { from{opacity:1} to{opacity:0.6} }
-        @keyframes toastIn  { from{opacity:0; transform:translateX(-50%) translateY(-12px)} to{opacity:1; transform:translateX(-50%) translateY(0)} }
-        @keyframes toastOut { from{opacity:1} to{opacity:0; transform:translateX(-50%) translateY(-10px)} }
+        @keyframes toastIn    { from{opacity:0; transform:translateX(-50%) translateY(-12px)} to{opacity:1; transform:translateX(-50%) translateY(0)} }
+        @keyframes toastOut   { from{opacity:1} to{opacity:0; transform:translateX(-50%) translateY(-10px)} }
       `}</style>
     </div>
   );
