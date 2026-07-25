@@ -561,7 +561,7 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
         <div style={{ position: 'relative', flex: 1 }}>
           <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>{country.symbol}</span>
           <input type="number" value={stake} onChange={e => setStake(e.target.value)} disabled={betPlaced}
-            style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '9px 10px 9px 28px', borderRadius: '7px', outline: 'none', fontSize: '14px', fontWeight: 700, boxSizing: 'border-box' }} />
+            style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: `9px 10px 9px ${country.symbol.length > 2 ? '44px' : '28px'}`, borderRadius: '7px', outline: 'none', fontSize: '14px', fontWeight: 700, boxSizing: 'border-box' }} />
         </div>
         {[50, 200, 500].map(baseV => {
           const v = Math.round(baseV * country.rate);
