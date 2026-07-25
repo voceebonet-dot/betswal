@@ -473,7 +473,7 @@ export const LigiBigiPage = () => {
             {formatCurrency(liga.amount)}
           </div>
           <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '2rem' }}>Jackpot amount — updates live</div>
-          <button className="btn btn-primary" style={{ padding: '14px 40px', fontWeight: 800, fontSize: '16px', borderRadius: '8px' }}>
+          <button className="btn btn-primary" style={{ padding: '14px 40px', fontWeight: 800, fontSize: '16px', borderRadius: '8px' }} onClick={() => alert('Loading Ligi Bigi prediction slip...')}>
             Play Ligi Bigi →
           </button>
         </>
