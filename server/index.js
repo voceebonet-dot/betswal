@@ -188,7 +188,13 @@ let leaderboard = [
 ];
 
 // 10. Admin stats
-let adminStats = { totalBets: 0, totalStaked: 0, activeUsers: 0, betsLog: [] };
+let adminStats = {
+  totalBets: 0,
+  totalStaked: 0,
+  activeUsers: 0,
+  betsLog: [],
+  pendingWithdrawals: [] // { reqId, phone, amount, status: 'Pending', time }
+};
 
 // 11. Jackpot pool
 let jackpotPool = { current: 2_340_000, target: 5_000_000 };
@@ -387,6 +393,56 @@ io.on('connection', (socket) => {
     socket.emit('admin_stats', adminStats);
   });
 
+  // ── Admin Actions ────────────────────────────────────────────
+  socket.on('admin_settle_bet', ({ ticketRef, status }) => {
+    // Find in betsLog
+    const bet = adminStats.betsLog.find(b => b.ticketRef === ticketRef);
+    if (bet) bet.status = status;
+    io.emit('bet_settled', { ticketRef, status });
+    io.to('admins').emit('admin_stats', adminStats);
+  });
+
+  socket.on('admin_update_jackpot', ({ current, target }) => {
+    jackpotPool.current = parseFloat(current) || jackpotPool.current;
+    jackpotPool.target = parseFloat(target) || jackpotPool.target;
+    io.emit('jackpot_pool_update', jackpotPool);
+  });
+
+  socket.on('admin_promo_broadcast', ({ message }) => {
+    io.emit('promo_broadcast', { message });
+  });
+
+  socket.on('approve_withdrawal', ({ reqId }) => {
+    const req = adminStats.pendingWithdrawals.find(r => r.reqId === reqId);
+    if (req) {
+      req.status = 'Approved';
+      io.emit('withdrawal_approved', { phone: req.phone, reqId: req.reqId, amount: req.amount });
+      // Remove from pending list after a delay or immediately
+      adminStats.pendingWithdrawals = adminStats.pendingWithdrawals.filter(r => r.reqId !== reqId);
+      io.to('admins').emit('admin_stats', adminStats);
+    }
+  });
+
+  socket.on('reject_withdrawal', ({ reqId }) => {
+    const req = adminStats.pendingWithdrawals.find(r => r.reqId === reqId);
+    if (req) {
+      req.status = 'Rejected';
+      io.emit('withdrawal_rejected', { phone: req.phone, reqId: req.reqId, amount: req.amount });
+      adminStats.pendingWithdrawals = adminStats.pendingWithdrawals.filter(r => r.reqId !== reqId);
+      io.to('admins').emit('admin_stats', adminStats);
+    }
+  });
+
+  // ── User Withdrawal Request ──────────────────────────────────
+  socket.on('request_withdrawal', ({ phone, amount }) => {
+    if (!checkRateLimit(socket.id, 'request_withdrawal', 3, 10000)) {
+      return socket.emit('withdrawal_error', { message: 'Too many requests.' });
+    }
+    const reqId = 'WDR-' + Date.now();
+    adminStats.pendingWithdrawals.push({ reqId, phone, amount, status: 'Pending', time: new Date().toISOString() });
+    io.to('admins').emit('admin_stats', adminStats);
+  });
+
   // ── Betslip sharing ──────────────────────────────────────────
   socket.on('save_betslip', ({ bets }) => {
     if (!checkRateLimit(socket.id, 'save_betslip', 5, 10000)) {
@@ -439,7 +495,7 @@ io.on('connection', (socket) => {
     // Update admin stats
     adminStats.totalBets += 1;
     adminStats.totalStaked += stakeNum;
-    adminStats.betsLog = [{ ticketRef, stake: stakeNum, possibleWin, time: new Date().toISOString() }, ...adminStats.betsLog].slice(0, 50);
+    adminStats.betsLog = [{ ticketRef, stake: stakeNum, possibleWin, time: new Date().toISOString(), status: 'Pending' }, ...adminStats.betsLog].slice(0, 50);
     
     // Grow jackpot pool
     jackpotPool.current = Math.min(jackpotPool.target, jackpotPool.current + stakeNum * 0.05);

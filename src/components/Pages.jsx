@@ -763,9 +763,12 @@ export const WithdrawPage = ({ setActiveSection }) => {
   );
   const handleWithdraw = () => {
     const result = withdraw(parseFloat(amount));
-    if (result.ok) { setMsg('Withdrawal requested!'); setAmount(''); }
+    if (result.ok) { 
+      setMsg(result.pending ? 'Request sent to admin for approval!' : 'Withdrawal processed!'); 
+      setAmount(''); 
+    }
     else setMsg('Error: ' + result.error);
-    setTimeout(() => setMsg(''), 3000);
+    setTimeout(() => setMsg(''), 4000);
   };
   return (
     <div style={{ maxWidth: '480px', margin: '2rem auto' }}>

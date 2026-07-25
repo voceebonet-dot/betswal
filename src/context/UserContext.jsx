@@ -98,6 +98,67 @@ export const UserProvider = ({ children }) => {
     }
   }, [user, socket]);
 
+  // ── Global Socket Listeners for Admin Actions ───────────────────────────
+  useEffect(() => {
+    if (!socket || !user) return;
+    
+    const onWithdrawalApproved = (data) => {
+      if (data.phone === user.phone) {
+        setWallet(prev => prev - data.amount);
+        setTransactions(prev => [{ type: 'withdrawal', amount: data.amount, date: new Date().toISOString(), ref: data.reqId, status: 'Completed' }, ...prev]);
+        // Send browser notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Withdrawal Approved! 💸', { body: `${formatCurrency(data.amount)} has been sent to your account.` });
+        }
+      }
+    };
+
+    const onWithdrawalRejected = (data) => {
+      if (data.phone === user.phone) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Withdrawal Rejected ❌', { body: `Your request for ${formatCurrency(data.amount)} was declined.` });
+        }
+      }
+    };
+
+    const onBetSettled = ({ ticketRef, status }) => {
+      setMyBets(prev => {
+        let changed = false;
+        const updated = prev.map(bet => {
+          if (bet.ticketRef === ticketRef && bet.status === 'Pending') {
+            changed = true;
+            if (status === 'Won') {
+              creditWinnings(parseFloat(bet.possibleWin), ticketRef);
+            }
+            return { ...bet, status };
+          }
+          return bet;
+        });
+        return changed ? updated : prev;
+      });
+    };
+
+    const onPromoBroadcast = ({ message }) => {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('BetsWal Promo 🌟', { body: message, icon: '/starbet_logo.svg' });
+      } else {
+        alert('BetsWal Promo 🌟\n\n' + message);
+      }
+    };
+
+    socket.on('withdrawal_approved', onWithdrawalApproved);
+    socket.on('withdrawal_rejected', onWithdrawalRejected);
+    socket.on('bet_settled', onBetSettled);
+    socket.on('promo_broadcast', onPromoBroadcast);
+
+    return () => {
+      socket.off('withdrawal_approved', onWithdrawalApproved);
+      socket.off('withdrawal_rejected', onWithdrawalRejected);
+      socket.off('bet_settled', onBetSettled);
+      socket.off('promo_broadcast', onPromoBroadcast);
+    };
+  }, [socket, user]);
+
   // ── Wallet ────────────────────────────────────────────────────────────────
   const deposit = (amount) => {
     const amt = parseFloat(amount);
@@ -111,6 +172,14 @@ export const UserProvider = ({ children }) => {
     const amt = parseFloat(amount);
     if (isNaN(amt) || amt <= 0) return { ok: false, error: 'Invalid amount' };
     if (amt > wallet) return { ok: false, error: 'Insufficient balance' };
+    
+    // Instead of deducting immediately, request approval
+    if (socket) {
+      socket.emit('request_withdrawal', { phone: user.phone, amount: amt });
+      return { ok: true, pending: true };
+    }
+    
+    // Fallback if no socket (shouldn't happen)
     setWallet(prev => prev - amt);
     setTransactions(prev => [{ type: 'withdrawal', amount: amt, date: new Date().toISOString(), ref: `WDR-${Date.now()}` }, ...prev]);
     return { ok: true };
