@@ -104,7 +104,9 @@ for (let day = 0; day <= 7; day++) {
       odds: [parseFloat(odd1), parseFloat(oddX), parseFloat(odd2)]
     });
   }
-}\n\n// 3. Jackpot data
+}
+
+// 3. Jackpot data
 let jackpot = {
   mega: { name: 'Mega Jackpot', amount: 100_000_000, currency: 'KSh', games: 17, minStake: 99 },
   mid:  { name: 'Mid Week Jackpot', amount: 10_000_000, currency: 'KSh', games: 13, minStake: 49 },
