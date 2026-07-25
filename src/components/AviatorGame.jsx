@@ -22,7 +22,7 @@ const NAMES = ['Alex', 'Kamau', 'Victor', 'Nancy', 'Patrick', 'Grace', 'Brian', 
   'Mark', 'Njeri', 'Samuel', 'Zawadi', 'Felix', 'Rose', 'Kevin', 'Lydiah',
   'Moses', 'Miriam', 'David', 'Esther', 'Paul', 'Ruth', 'Simon', 'Charity'];
 
-const randomBet   = () => [20,50,100,200,500,1000,2000,5000][Math.floor(Math.random()*8)];
+const randomBet   = (rate = 1) => Math.round([20,50,100,200,500,1000,2000,5000][Math.floor(Math.random()*8)] * rate);
 const randomName  = () => NAMES[Math.floor(Math.random() * NAMES.length)];
 const randomHash  = () => Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 
@@ -55,9 +55,9 @@ const useSessionStats = () => {
   return { stats, record };
 };
 
-const generatePlayers = (count) =>
+const generatePlayers = (count, rate = 1) =>
   Array.from({ length: count }, (_, i) => ({
-    id: i, name: randomName(), bet: randomBet(), cashedAt: null, status: 'waiting',
+    id: i, name: randomName(), bet: randomBet(rate), cashedAt: null, status: 'waiting',
   }));
 
 // ─── SVG Plane ────────────────────────────────────────────────────────────────
@@ -346,11 +346,11 @@ const StatsBar = ({ players, country }) => {
 
 // ─── Live Bets Feed ────────────────────────────────────────────────────────────
 const LiveBetsFeed = ({ multiplier, phase, onBigWin, country }) => {
-  const [players, setPlayers] = useState(() => generatePlayers(22));
+  const [players, setPlayers] = useState(() => generatePlayers(22, country.rate));
 
   useEffect(() => {
-    if (phase === 'betting') setPlayers(generatePlayers(18 + Math.floor(Math.random() * 10)));
-  }, [phase]);
+    if (phase === 'betting') setPlayers(generatePlayers(18 + Math.floor(Math.random() * 10), country.rate));
+  }, [phase, country.rate]);
 
   useEffect(() => {
     if (phase !== 'flying') return;
@@ -482,8 +482,12 @@ const CountdownRing = ({ countdown, max = 10 }) => {
 // ─── Bet Slot (Manual / Auto tabs) ───────────────────────────────────────────
 const BetSlot = ({ socket, phase, multiplier, label, country }) => {
   const [mode,        setMode]        = useState('manual');
-  const [stake,       setStake]       = useState(50);
+  const [stake,       setStake]       = useState(Math.round(50 * country.rate));
   const [autoCashout, setAutoCashout] = useState('2.00');
+
+  useEffect(() => {
+    setStake(Math.round(50 * country.rate));
+  }, [country.rate]);
   const [betPlaced,   setBetPlaced]   = useState(false);
   const [cashedOut,   setCashedOut]   = useState(null);
   const [msg,         setMsg]         = useState(null); // {text, color}
@@ -556,12 +560,15 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
           <input type="number" value={stake} onChange={e => setStake(e.target.value)} disabled={betPlaced}
             style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '9px 10px 9px 28px', borderRadius: '7px', outline: 'none', fontSize: '14px', fontWeight: 700, boxSizing: 'border-box' }} />
         </div>
-        {[50, 200, 500].map(v => (
-          <button key={v} onClick={() => !betPlaced && setStake(v)} disabled={betPlaced}
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)', color: stake == v ? '#86c439' : 'rgba(255,255,255,0.4)', padding: '6px 8px', borderRadius: '6px', cursor: betPlaced ? 'not-allowed' : 'pointer', fontSize: '11px', fontWeight: 700, minWidth: '36px', transition: 'color 0.2s' }}>
-            {v}
-          </button>
-        ))}
+        {[50, 200, 500].map(baseV => {
+          const v = Math.round(baseV * country.rate);
+          return (
+            <button key={v} onClick={() => !betPlaced && setStake(v)} disabled={betPlaced}
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)', color: stake == v ? '#86c439' : 'rgba(255,255,255,0.4)', padding: '6px 8px', borderRadius: '6px', cursor: betPlaced ? 'not-allowed' : 'pointer', fontSize: '11px', fontWeight: 700, minWidth: '36px', transition: 'color 0.2s' }}>
+              {v}
+            </button>
+          );
+        })}
       </div>
 
       {/* Auto cashout (only in auto mode) */}
