@@ -252,7 +252,7 @@ input.glow-focus:focus {
 
 @media (max-width: 1100px) {
   .app-layout {
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 200px 1fr;
   }
   .app-layout > :nth-child(3) {
     display: none;
@@ -262,9 +262,55 @@ input.glow-focus:focus {
 @media (max-width: 800px) {
   .app-layout {
     grid-template-columns: 1fr;
+    padding: 0 0.5rem 1rem;
   }
   .app-layout > :nth-child(1) {
     display: none;
+  }
+}
+
+/* ── Aviator Responsive ─────────────────────────────────────── */
+.aviator-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 290px;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.aviator-bet-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .aviator-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .aviator-bet-grid {
+    grid-template-columns: 1fr;
+  }
+  .aviator-history-bar {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+  .aviator-history-pills {
+    flex-wrap: wrap;
+  }
+  .aviator-multiplier-display {
+    font-size: 64px !important;
+  }
+  .aviator-multiplier-x {
+    font-size: 32px !important;
+  }
+}
+
+@media (max-width: 400px) {
+  .aviator-multiplier-display {
+    font-size: 52px !important;
   }
 }
 

@@ -730,11 +730,11 @@ const AviatorGame = () => {
   const multGlow  = `0 0 40px ${multColor}88, 0 0 80px ${multColor}33`;
 
   return (
-    <div onClick={handleInteraction} style={{ fontFamily: 'Inter, sans-serif', maxWidth: '1120px', margin: '0 auto', userSelect: 'none' }}>
+    <div onClick={handleInteraction} style={{ fontFamily: 'Inter, sans-serif', maxWidth: '1120px', margin: '0 auto', userSelect: 'none', padding: '0 0.5rem' }}>
 
       {/* History row + session stats */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '1rem', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
+      <div className="aviator-history-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '1rem', flexWrap: 'wrap' }}>
+        <div className="aviator-history-pills" style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
           <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginRight: '4px', fontWeight: 600, letterSpacing: '0.5px' }}>HISTORY</span>
           {history.slice(-14).map((v, i) => (
             <span key={i} style={{
@@ -762,7 +762,7 @@ const AviatorGame = () => {
       </div>
 
       {/* Main grid: canvas + live bets */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: '0.75rem', marginBottom: '0.75rem' }}>
+      <div className="aviator-main-grid">
 
         {/* ── Canvas panel ──────────────────── */}
         <div style={{ position: 'relative', background: 'radial-gradient(circle at 30% 90%, rgba(134,196,57,0.05) 0%, transparent 60%), radial-gradient(ellipse at 15% 85%, #0a1a28 0%, #04080e 100%)', borderRadius: '16px', overflow: 'hidden', border: `1px solid ${flashRed ? 'rgba(220,53,69,0.6)' : 'rgba(255,255,255,0.08)'}`, transition: 'border-color 0.3s', boxShadow: flashRed ? '0 0 40px rgba(220,53,69,0.5)' : '0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
@@ -803,8 +803,8 @@ const AviatorGame = () => {
             {phase === 'flying' && (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', letterSpacing: '4px', marginBottom: '4px', fontWeight: 700 }}>FLYING AWAY</div>
-                <div style={{ fontSize: '104px', fontWeight: 900, color: '#fff', textShadow: `0 0 20px ${multColor}, 0 0 40px ${multColor}, 0 0 80px ${multColor}`, lineHeight: 1, transition: 'color 0.2s, text-shadow 0.2s', fontVariantNumeric: 'tabular-nums', letterSpacing: '-2px' }}>
-                  {multiplier.toFixed(2)}<span style={{ fontSize: '48px', color: multColor, marginLeft: '4px' }}>×</span>
+                <div className="aviator-multiplier-display" style={{ fontSize: '104px', fontWeight: 900, color: '#fff', textShadow: `0 0 20px ${multColor}, 0 0 40px ${multColor}, 0 0 80px ${multColor}`, lineHeight: 1, transition: 'color 0.2s, text-shadow 0.2s', fontVariantNumeric: 'tabular-nums', letterSpacing: '-2px' }}>
+                  {multiplier.toFixed(2)}<span className="aviator-multiplier-x" style={{ fontSize: '48px', color: multColor, marginLeft: '4px' }}>×</span>
                 </div>
               </div>
             )}
@@ -864,7 +864,7 @@ const AviatorGame = () => {
       </div>
 
       {/* Dual Bet Slots */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+      <div className="aviator-bet-grid">
         <BetSlot socket={socket} phase={phase} multiplier={multiplier} label="Bet 1" country={country} />
         <BetSlot socket={socket} phase={phase} multiplier={multiplier} label="Bet 2" country={country} />
       </div>
