@@ -9,7 +9,14 @@ const path = require('path');
 const app = express();
 // Security middlewares
 app.use(helmet());
-app.use(cors());
+
+// CORS configuration
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*';
+const corsOptions = {
+  origin: allowedOrigins,
+  methods: ['GET', 'POST']
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Rate limiting
@@ -22,12 +29,32 @@ const apiLimiter = rateLimit({
 app.use(apiLimiter);
 
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-  },
-});
+const io = new Server(server, { cors: corsOptions });
+
+// Simple memory-based Rate Limiter for WebSockets
+const socketRateLimits = new Map();
+const checkRateLimit = (socketId, eventName, limit = 5, windowMs = 5000) => {
+  const now = Date.now();
+  const key = `${socketId}:${eventName}`;
+  const record = socketRateLimits.get(key) || { count: 0, firstSeen: now };
+
+  if (now - record.firstSeen > windowMs) {
+    record.count = 1;
+    record.firstSeen = now;
+  } else {
+    record.count++;
+  }
+  socketRateLimits.set(key, record);
+  
+  // Cleanup old entries randomly to prevent memory leaks in this simple implementation
+  if (Math.random() < 0.05) {
+    for (const [k, v] of socketRateLimits.entries()) {
+      if (now - v.firstSeen > 60000) socketRateLimits.delete(k);
+    }
+  }
+
+  return record.count <= limit;
+};
 
 // ─────────────────────────────────────────────────────────────────
 // DATA STORES
@@ -350,11 +377,23 @@ io.on('connection', (socket) => {
   socket.emit('fasta_update', fastaMarkets);
   socket.emit('leaderboard_update', leaderboard);
   socket.emit('jackpot_pool_update', jackpotPool);
-  socket.emit('admin_stats', adminStats);
+  
   adminStats.activeUsers = io.engine.clientsCount;
+
+  // ── Admin Subscription ───────────────────────────────────────
+  socket.on('admin_subscribe', () => {
+    // In a production app, verify a secure token before allowing join.
+    socket.join('admins');
+    socket.emit('admin_stats', adminStats);
+  });
 
   // ── Betslip sharing ──────────────────────────────────────────
   socket.on('save_betslip', ({ bets }) => {
+    if (!checkRateLimit(socket.id, 'save_betslip', 5, 10000)) {
+      return socket.emit('betslip_error', { message: 'Too many requests. Please wait.' });
+    }
+    if (!Array.isArray(bets) || bets.length === 0 || bets.length > 50) return;
+
     // Generate a random 6-char code
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     sharedBetslips[code] = { bets, savedAt: Date.now() };
@@ -373,20 +412,41 @@ io.on('connection', (socket) => {
 
   // ── Place bet ────────────────────────────────────────────────
   socket.on('place_bet', ({ bets, stake }) => {
-    // In production: validate, deduct balance, write to DB
+    if (!checkRateLimit(socket.id, 'place_bet', 3, 5000)) {
+      return socket.emit('bet_error', { message: 'Too many bets placed quickly. Please wait.' });
+    }
+
+    // Payload validation
+    const stakeNum = parseFloat(stake);
+    if (isNaN(stakeNum) || stakeNum <= 0 || stakeNum > 10000000) {
+      return socket.emit('bet_error', { message: 'Invalid stake amount.' });
+    }
+    if (!Array.isArray(bets) || bets.length === 0 || bets.length > 50) {
+      return socket.emit('bet_error', { message: 'Invalid bet selection.' });
+    }
+    
+    // Validate each bet has valid odds
+    const isValid = bets.every(b => b && typeof b.odds === 'number' && b.odds >= 1.01);
+    if (!isValid) return socket.emit('bet_error', { message: 'Invalid odds detected in betslip.' });
+
+    // In production: deduct balance atomically, write to DB
     const totalOdds = bets.reduce((acc, b) => acc * b.odds, 1);
-    const possibleWin = (totalOdds * stake).toFixed(2);
+    const possibleWin = (totalOdds * stakeNum).toFixed(2);
     const ticketRef = 'BET-' + Date.now();
-    socket.emit('bet_confirmed', { ticketRef, totalOdds: totalOdds.toFixed(2), possibleWin, stake });
+    
+    socket.emit('bet_confirmed', { ticketRef, totalOdds: totalOdds.toFixed(2), possibleWin, stake: stakeNum });
+    
     // Update admin stats
     adminStats.totalBets += 1;
-    adminStats.totalStaked += parseFloat(stake);
-    adminStats.betsLog = [{ ticketRef, stake, possibleWin, time: new Date().toISOString() }, ...adminStats.betsLog].slice(0, 50);
+    adminStats.totalStaked += stakeNum;
+    adminStats.betsLog = [{ ticketRef, stake: stakeNum, possibleWin, time: new Date().toISOString() }, ...adminStats.betsLog].slice(0, 50);
+    
     // Grow jackpot pool
-    jackpotPool.current = Math.min(jackpotPool.target, jackpotPool.current + parseFloat(stake) * 0.05);
+    jackpotPool.current = Math.min(jackpotPool.target, jackpotPool.current + stakeNum * 0.05);
     io.emit('jackpot_pool_update', jackpotPool);
-    io.emit('admin_stats', adminStats);
-    console.log(`🎟️  Bet placed ${ticketRef} | Stake: ${stake} | Win: ${possibleWin}`);
+    io.to('admins').emit('admin_stats', adminStats);
+    
+    console.log(`🎟️  Bet placed ${ticketRef} | Stake: ${stakeNum} | Win: ${possibleWin}`);
   });
 
   socket.on('disconnect', () => {
@@ -397,17 +457,27 @@ io.on('connection', (socket) => {
 
   // ── Aviator: place bet during BETTING phase ───────────────────
   socket.on('aviator_place_bet', ({ stake, autoCashout }) => {
+    if (!checkRateLimit(socket.id, 'aviator_bet', 3, 5000)) {
+      return socket.emit('aviator_error', { message: 'Too many bets. Please wait.' });
+    }
+    
     if (aviator.phase !== 'betting') {
       socket.emit('aviator_error', { message: 'Betting is closed for this round.' });
       return;
     }
+    
+    const stakeNum = parseFloat(stake);
+    if (isNaN(stakeNum) || stakeNum <= 0 || stakeNum > 1000000) {
+      return socket.emit('aviator_error', { message: 'Invalid stake amount.' });
+    }
+    
     aviator.players[socket.id] = {
-      stake: parseFloat(stake),
+      stake: stakeNum,
       autoCashout: autoCashout ? parseFloat(autoCashout) : null,
       cashedOut: false,
       cashoutMultiplier: null,
     };
-    socket.emit('aviator_bet_placed', { stake, autoCashout });
+    socket.emit('aviator_bet_placed', { stake: stakeNum, autoCashout });
   });
 
   // ── Aviator: manual cash-out during FLYING phase ──────────────
@@ -602,10 +672,10 @@ setInterval(() => {
   io.emit('leaderboard_update', leaderboard);
 }, 15000);
 
-// Admin stats heartbeat every 5s
+// Admin stats heartbeat every 5s (only to admins)
 setInterval(() => {
   adminStats.activeUsers = io.engine.clientsCount;
-  io.emit('admin_stats', adminStats);
+  io.to('admins').emit('admin_stats', adminStats);
 }, 5000);
 
 // Serve React frontend (dist folder)

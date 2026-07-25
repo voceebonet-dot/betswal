@@ -1,4 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useSocket } from './SocketContext';
+
+// Simple synchronous hash function to obscure passwords in localStorage (Mock security)
+const hashPassword = (str) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash.toString(16);
+};
 
 // Country definitions with exchange rates relative to KSh (base 1)
 export const COUNTRIES = {
@@ -39,6 +51,8 @@ export const UserProvider = ({ children }) => {
   useEffect(() => { localStorage.setItem('betSiteWallet', JSON.stringify(wallet)); }, [wallet]);
   useEffect(() => { localStorage.setItem('betSiteTx', JSON.stringify(transactions)); }, [transactions]);
 
+  const { socket } = useSocket();
+
   // Simulated registered users pool (in real app this would be a server call)
   const getRegistered = () => load('betSiteRegistered', []);
   const saveRegistered = (list) => localStorage.setItem('betSiteRegistered', JSON.stringify(list));
@@ -46,30 +60,42 @@ export const UserProvider = ({ children }) => {
   const register = (name, phone, password, countryId) => {
     const list = getRegistered();
     if (list.find(u => u.phone === phone)) return { ok: false, error: 'Phone already registered' };
-    const newUser = { id: Date.now(), name, phone, password, countryId, isAdmin: phone === '0000000000', joinedAt: new Date().toISOString() };
+    
+    // Hash password before storing
+    const hashedPassword = hashPassword(password);
+    const newUser = { id: Date.now(), name, phone, password: hashedPassword, countryId, isAdmin: phone === '0000000000', joinedAt: new Date().toISOString() };
+    
     saveRegistered([...list, newUser]);
     setUser(newUser);
     setWallet(0);
     if (countryId) setCountryCode(countryId);
+    
+    if (newUser.isAdmin && socket) socket.emit('admin_subscribe');
     return { ok: true };
   };
 
   const login = (phone, password) => {
-    // Admin shortcut
-    if (phone === '0000000000' && password === 'admin') {
-      const adminUser = { id: 0, name: 'Admin', phone, isAdmin: true };
-      setUser(adminUser);
-      return { ok: true };
-    }
     const list = getRegistered();
-    const found = list.find(u => u.phone === phone && u.password === password);
+    const hashedPassword = hashPassword(password);
+    const found = list.find(u => u.phone === phone && u.password === hashedPassword);
+    
     if (!found) return { ok: false, error: 'Invalid phone or password' };
+    
     setUser(found);
     if (found.countryId) setCountryCode(found.countryId);
+    if (found.isAdmin && socket) socket.emit('admin_subscribe');
+    
     return { ok: true };
   };
 
   const logout = () => { setUser(null); };
+
+  // Re-subscribe to admin stats on reload if user is admin
+  useEffect(() => {
+    if (user?.isAdmin && socket) {
+      socket.emit('admin_subscribe');
+    }
+  }, [user, socket]);
 
   // ── Wallet ────────────────────────────────────────────────────────────────
   const deposit = (amount) => {
