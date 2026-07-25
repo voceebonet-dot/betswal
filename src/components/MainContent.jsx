@@ -254,7 +254,7 @@ const JackpotPanel = () => {
               width: '100%', padding: '14px', fontWeight: 800, fontSize: '15px',
               backgroundColor: color, color: '#000', borderRadius: '8px',
               boxShadow: `0 4px 15px ${color}66`
-            }}>
+            }} onClick={() => alert(`Opening prediction screen for ${j.name}...`)}>
               Play {j.name} Now
             </button>
           </div>

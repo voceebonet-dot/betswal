@@ -562,7 +562,7 @@ export const PromotionsPage = () => {
               <div style={{ fontWeight: 700, color: p.colour, marginBottom: '3px' }}>{p.title}</div>
               <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{p.sub}</div>
             </div>
-            <button className="btn" style={{ backgroundColor: p.colour + '22', color: p.colour, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <button className="btn" style={{ backgroundColor: p.colour + '22', color: p.colour, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }} onClick={(e) => { e.stopPropagation(); alert(`Checking eligibility for ${p.title}...`); }}>
               Claim →
             </button>
           </div>
