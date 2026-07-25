@@ -62,7 +62,8 @@ const generatePlayers = (count) =>
 
 // ─── SVG Plane ────────────────────────────────────────────────────────────────
 const PlaneSVG = ({ color = '#86c439', size = 36 }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" style={{ filter: `drop-shadow(0 0 8px ${color}aa)` }}>
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" style={{ filter: `drop-shadow(0 4px 12px ${color}99)` }}>
+    <path d="M4 22 Q0 24 4 26 Q-4 24 4 22Z" fill="#ff9f43" style={{ animation: 'flickerRed 0.1s infinite alternate' }} />
     <path d="M4 24L44 8L36 24L44 40L4 24Z" fill={color} />
     <path d="M4 24L20 28L18 36L4 24Z" fill={color + 'aa'} />
     <path d="M20 16L28 8L30 16L20 16Z" fill={color + 'cc'} />
@@ -70,26 +71,47 @@ const PlaneSVG = ({ color = '#86c439', size = 36 }) => (
 );
 
 // ─── Stars background ──────────────────────────────────────────────────────────
-const Stars = ({ crashed }) => {
+const Stars = ({ crashed, phase }) => {
   const stars = useRef(
     Array.from({ length: 100 }, () => ({
       x: Math.random() * 100, y: Math.random() * 100,
-      size: Math.random() * 2.5 + 0.3, delay: Math.random() * 4,
+      size: Math.random() * 2.5 + 0.5, delay: Math.random() * 4,
       speed: Math.random() * 2 + 1,
+      parallax: Math.random() * 0.5 + 0.1,
     }))
   );
+  
+  const [offset, setOffset] = useState(0);
+  
+  useEffect(() => {
+    if (phase !== 'flying') return;
+    let start = Date.now();
+    let frame;
+    const loop = () => {
+      setOffset((Date.now() - start) / 50);
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
+  }, [phase]);
+
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-      {stars.current.map((s, i) => (
-        <div key={i} style={{
-          position: 'absolute', left: `${s.x}%`, top: `${s.y}%`,
-          width: `${s.size}px`, height: `${s.size}px`,
-          backgroundColor: crashed ? 'rgba(255,100,100,0.4)' : 'rgba(255,255,255,0.5)',
-          borderRadius: '50%',
-          animation: `twinkle ${s.speed}s ${s.delay}s infinite alternate`,
-          transition: 'background-color 0.5s',
-        }} />
-      ))}
+      {stars.current.map((s, i) => {
+        const xPos = (s.x - (phase === 'flying' ? offset * s.parallax : 0)) % 100;
+        const normalizedX = xPos < 0 ? 100 + xPos : xPos;
+        return (
+          <div key={i} style={{
+            position: 'absolute', left: `${normalizedX}%`, top: `${s.y}%`,
+            width: `${s.size}px`, height: `${s.size}px`,
+            backgroundColor: crashed ? 'rgba(255,100,100,0.4)' : 'rgba(255,255,255,0.6)',
+            borderRadius: '50%',
+            animation: `twinkle ${s.speed}s ${s.delay}s infinite alternate`,
+            transition: 'background-color 0.5s',
+            boxShadow: `0 0 ${s.size * 2}px rgba(255,255,255,0.3)`,
+          }} />
+        );
+      })}
     </div>
   );
 };
@@ -128,17 +150,18 @@ const Explosion = ({ x, y }) => {
 
 // ─── Big Win Toast ─────────────────────────────────────────────────────────────
 const BigWinToast = ({ toasts }) => (
-  <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center', pointerEvents: 'none' }}>
+  <div style={{ position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center', pointerEvents: 'none' }}>
     {toasts.map(t => (
       <div key={t.id} style={{
-        background: 'linear-gradient(135deg, rgba(254,205,8,0.95), rgba(255,159,67,0.95))',
-        color: '#000', fontWeight: 800, fontSize: '13px',
-        padding: '8px 18px', borderRadius: '30px',
-        boxShadow: '0 4px 20px rgba(254,205,8,0.6)',
-        animation: 'toastIn 0.3s ease-out, toastOut 0.5s ease-in 2.5s forwards',
-        whiteSpace: 'nowrap',
+        background: 'linear-gradient(135deg, rgba(254,205,8,0.95) 0%, rgba(255,159,67,0.95) 100%)',
+        color: '#000', fontWeight: 900, fontSize: '14px',
+        padding: '10px 22px', borderRadius: '30px',
+        boxShadow: '0 8px 32px rgba(254,205,8,0.6), inset 0 1px 2px rgba(255,255,255,0.4)',
+        animation: 'toastIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), toastOut 0.5s ease-in 2.5s forwards',
+        whiteSpace: 'nowrap', textShadow: '0 1px 1px rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', gap: '8px'
       }}>
-        🚀 {t.name} cashed out @ {t.mult}x — won {t.won}!
+        <span style={{ fontSize: '18px', filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.2))' }}>🚀</span>
+        <span>{t.name} cashed out @ {t.mult}x — won {t.won}!</span>
       </div>
     ))}
   </div>
@@ -175,10 +198,12 @@ const AviatorGraph = ({ multiplier, phase, planePos, setPlanePos }) => {
       const H = canvas.height;
       ctx.clearRect(0, 0, W, H);
 
-      // Grid lines
-      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      // Grid lines (subtle scrolling effect)
+      const tNow = Date.now() / 1000;
+      const offset = (tNow * 20) % 100;
+      ctx.strokeStyle = 'rgba(255,255,255,0.025)';
       ctx.lineWidth = 1;
-      for (let x = 0; x < W; x += 100) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let x = -offset; x < W; x += 100) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
       for (let y = 0; y < H; y += 50)  { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
 
       // Y-axis multiplier labels
@@ -271,16 +296,19 @@ const AviatorGraph = ({ multiplier, phase, planePos, setPlanePos }) => {
         const scaleH = rect.height / H;
         setPlanePos({ x: px * scaleW - 18, y: py * scaleH - 18, angle });
 
-        // Trail particles
-        for (let i = 0; i < 4; i++) {
-          const trailX = px - (i + 1) * 6;
-          const trailY = py + (Math.random() - 0.5) * 8;
-          const alpha = 0.3 - i * 0.06;
+        // Jet engine trail particles
+        for (let i = 0; i < 12; i++) {
+          const trailX = px - (i + 1) * 5;
+          const spread = i * 1.2;
+          const trailY = py + (Math.random() - 0.5) * spread;
+          const alpha = Math.max(0, 0.7 - i * 0.06);
           ctx.beginPath();
-          ctx.fillStyle = `rgba(134,196,57,${alpha})`;
-          ctx.arc(trailX, trailY, 3 - i * 0.4, 0, Math.PI * 2);
+          ctx.fillStyle = i < 3 ? '#fff' : (i < 6 ? '#fecd08' : lineColor);
+          ctx.globalAlpha = alpha;
+          ctx.arc(trailX, trailY, Math.max(0.5, 4 - i * 0.25), 0, Math.PI * 2);
           ctx.fill();
         }
+        ctx.globalAlpha = 1;
       }
 
       animRef.current = requestAnimationFrame(draw);
@@ -499,7 +527,8 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
   const canCashout = phase === 'flying' && betPlaced && !cashedOut;
 
   return (
-    <div style={{ background: 'linear-gradient(145deg, #1b242e, #151d26)', borderRadius: '14px', padding: '1rem 1.1rem', border: '1px solid rgba(255,255,255,0.06)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+    <div style={{ background: 'rgba(20, 30, 42, 0.65)', backdropFilter: 'blur(12px)', borderRadius: '14px', padding: '1rem 1.1rem', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: '-50%', left: '-50%', width: '200%', height: '200%', background: `radial-gradient(circle at 50% 120%, ${phase === 'betting' ? 'rgba(134,196,57,0.05)' : 'transparent'} 0%, transparent 50%)`, pointerEvents: 'none' }} />
       {/* Label + tabs */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
         <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}>{label}</span>
@@ -565,11 +594,13 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
 
       {/* Action Button */}
       {canBet && (
-        <button onClick={handleBet} style={{ width: '100%', background: 'linear-gradient(135deg, #86c439, #5a9e27)', color: '#000', border: 'none', padding: '13px', borderRadius: '9px', fontWeight: 900, fontSize: '14px', cursor: 'pointer', letterSpacing: '0.5px', boxShadow: '0 4px 15px rgba(134,196,57,0.35)', transition: 'all 0.2s' }}
-          onMouseOver={e => e.currentTarget.style.boxShadow = '0 6px 20px rgba(134,196,57,0.55)'}
-          onMouseOut={e => e.currentTarget.style.boxShadow = '0 4px 15px rgba(134,196,57,0.35)'}
+        <button onClick={handleBet} style={{ width: '100%', background: 'linear-gradient(135deg, #9ae640, #5a9e27)', color: '#000', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 900, fontSize: '15px', cursor: 'pointer', letterSpacing: '0.5px', boxShadow: '0 6px 20px rgba(134,196,57,0.4), inset 0 1px 1px rgba(255,255,255,0.4)', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
+          onMouseOver={e => { e.currentTarget.style.boxShadow = '0 8px 25px rgba(134,196,57,0.6), inset 0 1px 1px rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+          onMouseOut={e => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(134,196,57,0.4), inset 0 1px 1px rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+          onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(134,196,57,0.4)'; }}
+          onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
         >
-          BET {country.symbol}{stake}
+          BET <span style={{ fontSize: '16px' }}>{country.symbol}{stake}</span>
         </button>
       )}
       {betPlaced && phase === 'betting' && (
@@ -578,7 +609,10 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
         </div>
       )}
       {canCashout && (
-        <button onClick={handleCashout} style={{ width: '100%', background: 'linear-gradient(135deg, #fecd08, #e6b800)', color: '#000', border: 'none', padding: '13px', borderRadius: '9px', fontWeight: 900, fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 25px rgba(254,205,8,0.6)', animation: 'pulseCashout 0.7s ease-in-out infinite alternate', letterSpacing: '0.5px' }}>
+        <button onClick={handleCashout} style={{ width: '100%', background: 'linear-gradient(135deg, #ffd933, #e6b800)', color: '#000', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 900, fontSize: '16px', cursor: 'pointer', boxShadow: '0 6px 30px rgba(254,205,8,0.7), inset 0 1px 1px rgba(255,255,255,0.5)', animation: 'pulseCashout 0.6s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate', letterSpacing: '0.5px', transition: 'transform 0.1s' }}
+          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.98)'; }}
+          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1.02)'; }}
+        >
           💰 CASH OUT @ {multiplier.toFixed(2)}x
         </button>
       )}
@@ -686,11 +720,11 @@ const AviatorGame = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: '0.75rem', marginBottom: '0.75rem' }}>
 
         {/* ── Canvas panel ──────────────────── */}
-        <div style={{ position: 'relative', background: 'radial-gradient(ellipse at 15% 85%, #0a1a28 0%, #060c14 100%)', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 10px 50px rgba(0,0,0,0.9)', border: `1px solid ${flashRed ? 'rgba(220,53,69,0.6)' : 'rgba(255,255,255,0.04)'}`, transition: 'border-color 0.3s', boxShadow: flashRed ? '0 0 40px rgba(220,53,69,0.5)' : '0 10px 50px rgba(0,0,0,0.9)' }}>
+        <div style={{ position: 'relative', background: 'radial-gradient(circle at 30% 90%, rgba(134,196,57,0.05) 0%, transparent 60%), radial-gradient(ellipse at 15% 85%, #0a1a28 0%, #04080e 100%)', borderRadius: '16px', overflow: 'hidden', border: `1px solid ${flashRed ? 'rgba(220,53,69,0.6)' : 'rgba(255,255,255,0.08)'}`, transition: 'border-color 0.3s', boxShadow: flashRed ? '0 0 40px rgba(220,53,69,0.5)' : '0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
           {/* Red flash overlay on crash */}
           {flashRed && <div style={{ position: 'absolute', inset: 0, background: 'rgba(220,53,69,0.12)', zIndex: 5, pointerEvents: 'none', animation: 'fadeFlash 0.8s ease-out forwards' }} />}
 
-          <Stars crashed={phase === 'crashed'} />
+          <Stars crashed={phase === 'crashed'} phase={phase} />
           <AviatorGraph multiplier={multiplier} phase={phase} planePos={planePos} setPlanePos={setPlanePos} />
           <FloatingReactions reactions={reactions} />
 
@@ -724,16 +758,16 @@ const AviatorGame = () => {
             {phase === 'flying' && (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', letterSpacing: '4px', marginBottom: '4px', fontWeight: 700 }}>FLYING AWAY</div>
-                <div style={{ fontSize: '96px', fontWeight: 900, color: multColor, textShadow: multGlow, lineHeight: 1, transition: 'color 0.2s, text-shadow 0.2s', fontVariantNumeric: 'tabular-nums' }}>
-                  {multiplier.toFixed(2)}<span style={{ fontSize: '44px' }}>×</span>
+                <div style={{ fontSize: '104px', fontWeight: 900, color: '#fff', textShadow: `0 0 20px ${multColor}, 0 0 40px ${multColor}, 0 0 80px ${multColor}`, lineHeight: 1, transition: 'color 0.2s, text-shadow 0.2s', fontVariantNumeric: 'tabular-nums', letterSpacing: '-2px' }}>
+                  {multiplier.toFixed(2)}<span style={{ fontSize: '48px', color: multColor, marginLeft: '4px' }}>×</span>
                 </div>
               </div>
             )}
             {phase === 'crashed' && (
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '12px', color: '#dc3545', fontWeight: 800, letterSpacing: '4px', marginBottom: '4px', animation: 'flickerRed 0.3s infinite alternate' }}>FLEW AWAY!</div>
-                <div style={{ fontSize: '88px', fontWeight: 900, color: '#dc3545', textShadow: '0 0 50px rgba(220,53,69,0.9)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                  {crashAt?.toFixed(2)}<span style={{ fontSize: '40px' }}>×</span>
+                <div style={{ fontSize: '13px', color: '#ff4757', fontWeight: 900, letterSpacing: '6px', marginBottom: '4px', animation: 'flickerRed 0.15s infinite alternate' }}>FLEW AWAY!</div>
+                <div style={{ fontSize: '92px', fontWeight: 900, color: '#fff', textShadow: '0 0 20px #ff4757, 0 0 50px #ff4757, 0 0 80px #ff4757', lineHeight: 1, fontVariantNumeric: 'tabular-nums', letterSpacing: '-2px' }}>
+                  {crashAt?.toFixed(2)}<span style={{ fontSize: '44px', color: '#ff4757', marginLeft: '4px' }}>×</span>
                 </div>
               </div>
             )}
@@ -753,7 +787,7 @@ const AviatorGame = () => {
         </div>
 
         {/* ── Live bets panel ───────────────── */}
-        <div style={{ background: '#0b141f', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: 'rgba(11, 20, 31, 0.8)', backdropFilter: 'blur(8px)', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
             {[['live', 'All Bets'], ['top', 'Top Wins'], ['my', 'My Bets']].map(([key, label]) => (
               <button key={key} onClick={() => setActiveTab(key)} style={{ flex: 1, padding: '11px 4px', border: 'none', cursor: 'pointer', background: activeTab === key ? 'rgba(134,196,57,0.06)' : 'transparent', color: activeTab === key ? '#86c439' : 'rgba(255,255,255,0.3)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.3px', borderBottom: activeTab === key ? '2px solid #86c439' : '2px solid transparent', transition: 'all 0.2s' }}>
