@@ -1,0 +1,373 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+:root {
+  --primary: #86c439;
+  --primary-hover: #96dc40;
+  --bg-dark: #0f151b;
+  --bg-panel: #17212b;
+  --bg-btn: #233140;
+  --bg-btn-hover: #2e3f52;
+  --text-main: #d9e1e8;
+  --text-muted: #8496a8;
+  --border-color: #233140;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+  background: radial-gradient(circle at top, #1a2735 0%, var(--bg-dark) 50%);
+  background-attachment: fixed;
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+  font-size: 13px;
+}
+
+ul { list-style: none; }
+a { text-decoration: none; color: inherit; }
+
+.text-primary { color: var(--primary); }
+.text-muted { color: var(--text-muted); }
+
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: #000;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(134, 196, 57, 0.2);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(134, 196, 57, 0.4);
+}
+
+.odds-btn {
+  background-color: var(--bg-btn);
+  color: var(--text-main);
+  border: 1px solid transparent;
+  border-radius: 16px;
+  padding: 0.5rem 1rem;
+  width: 90px;
+  text-align: center;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.odds-btn:hover {
+  background-color: var(--bg-btn-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.odds-btn:active {
+  transform: translateY(0);
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr 320px;
+  gap: 1.5rem;
+  padding: 0 1rem 2rem 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Glass panel utility */
+.glass-panel {
+  background: rgba(23, 33, 43, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-btn);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Match Row Hover */
+.match-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+}
+
+.match-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+  transform: translateX(4px);
+  box-shadow: -4px 0 0 var(--primary);
+}
+
+/* Animations */
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 0 0 rgba(134, 196, 57, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(134, 196, 57, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(134, 196, 57, 0); }
+}
+
+.pulse-btn {
+  animation: pulseGlow 2s infinite;
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-enter {
+  animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Text Gradients */
+.text-gradient-gold {
+  background: linear-gradient(to right, #fecd08, #ff9f43);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-primary {
+  background: linear-gradient(to right, #86c439, #00a651);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Input Styles */
+input, select {
+  transition: all 0.2s;
+}
+input:focus, select:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(134, 196, 57, 0.15);
+}
+
+/* Hero Gradient */
+@keyframes heroGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.hero-bg {
+  background: linear-gradient(-45deg, #121a22, #0d1923, #1e3c28, #1b242e);
+  background-size: 400% 400%;
+  animation: heroGradient 15s ease infinite;
+}
+
+/* Animated Toast */
+@keyframes slideUpToast {
+  0% { opacity: 0; transform: translateY(20px) translateX(-50%); }
+  10% { opacity: 1; transform: translateY(0) translateX(-50%); }
+  90% { opacity: 1; transform: translateY(0) translateX(-50%); }
+  100% { opacity: 0; transform: translateY(-20px) translateX(-50%); }
+}
+
+.toast-message {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: #000;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 14px;
+  box-shadow: 0 8px 32px rgba(134, 196, 57, 0.4);
+  z-index: 9999;
+  animation: slideUpToast 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Input Glow */
+input.glow-focus:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 12px rgba(134, 196, 57, 0.3) !important;
+  background-color: rgba(134, 196, 57, 0.05) !important;
+}
+
+/* Bet Item Hover */
+.bet-item-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-left: 2px solid transparent;
+}
+.bet-item-card:hover {
+  transform: translateX(4px);
+  background-color: var(--bg-btn-hover) !important;
+  border-left: 2px solid var(--primary);
+}
+
+
+/* Responsive App Layout */
+.app-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr 300px;
+  gap: 1.5rem;
+  align-items: start;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+@media (max-width: 1100px) {
+  .app-layout {
+    grid-template-columns: 240px 1fr;
+  }
+  .app-layout > :nth-child(3) {
+    display: none;
+  }
+}
+
+@media (max-width: 800px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+  .app-layout > :nth-child(1) {
+    display: none;
+  }
+}
+
+/* Sidebar Nav Item Polish */
+.sidebar-nav-item {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-left: 2px solid transparent;
+}
+.sidebar-nav-item:hover {
+  background-color: var(--bg-btn-hover) !important;
+  transform: translateX(4px);
+  border-left: 2px solid var(--primary);
+  color: #fff !important;
+}
+
+
+ /* Navbar Polish */
+.nav-item::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: -2px;
+  left: 50%;
+  background-color: var(--primary);
+  transition: all 0.3s ease;
+  transform: translateX(-50%);
+}
+.nav-item:hover::after {
+  width: 100%;
+}
+.nav-item:hover {
+  color: #fff !important;
+}
+
+/* StarBet Fasta Table Glow */
+.fasta-row:hover {
+  background-color: rgba(134, 196, 57, 0.05) !important;
+  box-shadow: inset 0 0 10px rgba(134, 196, 57, 0.1);
+}
+
+/* Animated Gradient Header for Shikisha / Bet Builder */
+.gradient-header {
+  background: linear-gradient(135deg, #0d1923, #1b242e);
+  border-bottom: 2px solid var(--primary);
+  position: relative;
+  overflow: hidden;
+}
+.gradient-header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+  animation: shine 4s infinite;
+}
+@keyframes shine {
+  to { left: 200%; }
+}
+ /* Ribbon Polish */
+.promo-ribbon {
+  position: absolute;
+  top: 12px;
+  right: -28px;
+  background: #dc3545;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 32px;
+  transform: rotate(45deg);
+  box-shadow: 0 2px 8px rgba(220,53,69,0.5);
+  letter-spacing: 1px;
+}
+.promo-ribbon.hot {
+  background: linear-gradient(90deg, #ff4757, #fecd08);
+}
+.promo-card {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Auth Page Polish */
+.auth-input-container {
+  position: relative;
+}
+.auth-input-container i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+.auth-input {
+  padding-left: 36px !important;
+}
+
+/* Live Score Row */
+.live-score-row {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.live-score-row:hover {
+  background-color: var(--bg-btn) !important;
+  transform: scale(1.01);
+  border-color: var(--primary) !important;
+  box-shadow: 0 4px 16px rgba(134, 196, 57, 0.1);
+}
