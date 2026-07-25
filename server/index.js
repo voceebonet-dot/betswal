@@ -46,17 +46,25 @@ let liveMatches = [
 ];
 
 // 2. Highlights / Upcoming matches
+const generateFutureDate = (daysAhead, hoursStr) => {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  return `${day}/${month}, ${hoursStr}`;
+};
+
 let highlightMatches = [
-  { id: 1,  country: 'Argentina • Primera LPF', home: 'Newells Old Boys', away: 'Estudiantes De Rio',  date: '23/07, 21:00', odds: [1.36, 4.50, 7.00] },
-  { id: 2,  country: 'Argentina • Primera LPF', home: 'Racing Club Avell', away: 'Gimnasia De Mendo',  date: '23/07, 21:00', odds: [1.71, 3.45, 4.40] },
-  { id: 3,  country: 'Argentina • Primera LPF', home: 'Estudiantes De La', away: 'Quilmes',            date: '23/07, 21:00', odds: [2.07, 3.05, 3.45] },
-  { id: 4,  country: 'Argentina • Primera LPF', home: 'S. M. De San Juan', away: 'Rafaela',            date: '23/07, 21:00', odds: [4.10, 3.80, 1.69] },
-  { id: 5,  country: 'Argentina • Primera LPF', home: 'Instituto Ac Cord', away: 'Gimnasia De La Pl',  date: '23/07, 21:00', odds: [2.65, 2.75, 2.80] },
-  { id: 6,  country: 'Paraguay • Copa Paraguay', home: 'Sportivo Iteno',   away: 'Capiata',             date: '23/07, 21:30', odds: [5.40, 3.75, 1.57] },
-  { id: 7,  country: 'Brazil • U20 Brasileiro',  home: 'Rb Bragantino Sp', away: 'Se Palmeiras Sp',    date: '23/07, 22:00', odds: [2.28, 3.55, 2.70] },
-  { id: 8,  country: 'England • Championship',   home: 'Leeds United', away: 'Sunderland',             date: '24/07, 14:00', odds: [2.10, 3.30, 3.50] },
-  { id: 9,  country: 'Kenya • FKF Premier',      home: 'Gor Mahia', away: 'AFC Leopards',             date: '24/07, 15:00', odds: [1.90, 3.40, 4.00] },
-  { id: 10, country: 'Egypt • Premier League',   home: 'Zamalek', away: 'Al-Ahly',                    date: '24/07, 17:00', odds: [2.80, 3.10, 2.60] },
+  { id: 1,  country: 'Argentina • Primera LPF', home: 'Newells Old Boys', away: 'Estudiantes De Rio',  date: generateFutureDate(0, '21:00'), odds: [1.36, 4.50, 7.00] },
+  { id: 2,  country: 'Argentina • Primera LPF', home: 'Racing Club Avell', away: 'Gimnasia De Mendo',  date: generateFutureDate(0, '21:00'), odds: [1.71, 3.45, 4.40] },
+  { id: 3,  country: 'Argentina • Primera LPF', home: 'Estudiantes De La', away: 'Quilmes',            date: generateFutureDate(0, '21:00'), odds: [2.07, 3.05, 3.45] },
+  { id: 4,  country: 'Argentina • Primera LPF', home: 'S. M. De San Juan', away: 'Rafaela',            date: generateFutureDate(0, '21:00'), odds: [4.10, 3.80, 1.69] },
+  { id: 5,  country: 'Argentina • Primera LPF', home: 'Instituto Ac Cord', away: 'Gimnasia De La Pl',  date: generateFutureDate(0, '21:00'), odds: [2.65, 2.75, 2.80] },
+  { id: 6,  country: 'Paraguay • Copa Paraguay', home: 'Sportivo Iteno',   away: 'Capiata',             date: generateFutureDate(0, '21:30'), odds: [5.40, 3.75, 1.57] },
+  { id: 7,  country: 'Brazil • U20 Brasileiro',  home: 'Rb Bragantino Sp', away: 'Se Palmeiras Sp',    date: generateFutureDate(0, '22:00'), odds: [2.28, 3.55, 2.70] },
+  { id: 8,  country: 'England • Championship',   home: 'Leeds United', away: 'Sunderland',             date: generateFutureDate(1, '14:00'), odds: [2.10, 3.30, 3.50] },
+  { id: 9,  country: 'Kenya • FKF Premier',      home: 'Gor Mahia', away: 'AFC Leopards',             date: generateFutureDate(1, '15:00'), odds: [1.90, 3.40, 4.00] },
+  { id: 10, country: 'Egypt • Premier League',   home: 'Zamalek', away: 'Al-Ahly',                    date: generateFutureDate(1, '17:00'), odds: [2.80, 3.10, 2.60] },
 ];
 
 // 3. Jackpot data
