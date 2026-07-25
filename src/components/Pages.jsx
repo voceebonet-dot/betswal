@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { useUser, COUNTRIES } from '../context/UserContext';
 import CasinoModal from './CasinoModal';
+import PromoModal from './PromoModal';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtCountdown = (s) => {
@@ -541,6 +542,8 @@ export const ShikishaPage = ({ bets = [], toggleBet = () => {} }) => {
 // ─── Promotions Page ──────────────────────────────────────────────────────────
 export const PromotionsPage = () => {
   const { formatCurrency } = useUser();
+  const [activePromo, setActivePromo] = React.useState(null);
+  
   const promos = [
     { title: 'Welcome Bonus',     sub: `Get 100% on your first deposit up to ${formatCurrency(1000)}`, icon: '🎁', colour: '#00a651' },
     { title: 'Mega Jackpot Bonus',sub: `Predict all 17 games and win ${formatCurrency(100000000)}`,          icon: '💰', colour: '#fecd08' },
@@ -583,12 +586,15 @@ export const PromotionsPage = () => {
               <div style={{ fontWeight: 700, color: p.colour, marginBottom: '3px' }}>{p.title}</div>
               <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{p.sub}</div>
             </div>
-            <button className="btn" style={{ backgroundColor: p.colour + '22', color: p.colour, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }} onClick={(e) => { e.stopPropagation(); alert(`Checking eligibility for ${p.title}...`); }}>
+            <button className="btn" style={{ backgroundColor: p.colour + '22', color: p.colour, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }} onClick={(e) => { e.stopPropagation(); setActivePromo(p); }}>
               Claim →
             </button>
           </div>
         ))}
       </div>
+      
+      {/* Promo Claim Modal */}
+      <PromoModal promo={activePromo} onClose={() => setActivePromo(null)} />
     </div>
   );
 };
