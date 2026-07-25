@@ -54,20 +54,57 @@ const generateFutureDate = (daysAhead, hoursStr) => {
   return `${day}/${month}, ${hoursStr}`;
 };
 
-let highlightMatches = [
-  { id: 1,  country: 'Argentina • Primera LPF', home: 'Newells Old Boys', away: 'Estudiantes De Rio',  date: generateFutureDate(0, '21:00'), odds: [1.36, 4.50, 7.00] },
-  { id: 2,  country: 'Argentina • Primera LPF', home: 'Racing Club Avell', away: 'Gimnasia De Mendo',  date: generateFutureDate(0, '21:00'), odds: [1.71, 3.45, 4.40] },
-  { id: 3,  country: 'Argentina • Primera LPF', home: 'Estudiantes De La', away: 'Quilmes',            date: generateFutureDate(0, '21:00'), odds: [2.07, 3.05, 3.45] },
-  { id: 4,  country: 'Argentina • Primera LPF', home: 'S. M. De San Juan', away: 'Rafaela',            date: generateFutureDate(0, '21:00'), odds: [4.10, 3.80, 1.69] },
-  { id: 5,  country: 'Argentina • Primera LPF', home: 'Instituto Ac Cord', away: 'Gimnasia De La Pl',  date: generateFutureDate(0, '21:00'), odds: [2.65, 2.75, 2.80] },
-  { id: 6,  country: 'Paraguay • Copa Paraguay', home: 'Sportivo Iteno',   away: 'Capiata',             date: generateFutureDate(0, '21:30'), odds: [5.40, 3.75, 1.57] },
-  { id: 7,  country: 'Brazil • U20 Brasileiro',  home: 'Rb Bragantino Sp', away: 'Se Palmeiras Sp',    date: generateFutureDate(0, '22:00'), odds: [2.28, 3.55, 2.70] },
-  { id: 8,  country: 'England • Championship',   home: 'Leeds United', away: 'Sunderland',             date: generateFutureDate(1, '14:00'), odds: [2.10, 3.30, 3.50] },
-  { id: 9,  country: 'Kenya • FKF Premier',      home: 'Gor Mahia', away: 'AFC Leopards',             date: generateFutureDate(1, '15:00'), odds: [1.90, 3.40, 4.00] },
-  { id: 10, country: 'Egypt • Premier League',   home: 'Zamalek', away: 'Al-Ahly',                    date: generateFutureDate(1, '17:00'), odds: [2.80, 3.10, 2.60] },
+const LEAGUES = [
+  'England • Premier League', 'Spain • La Liga', 'Italy • Serie A', 'Germany • Bundesliga',
+  'France • Ligue 1', 'Netherlands • Eredivisie', 'Portugal • Primeira Liga',
+  'Argentina • Primera LPF', 'Brazil • Serie A', 'USA • MLS', 'Mexico • Liga MX',
+  'Japan • J-League', 'Australia • A-League', 'Kenya • FKF Premier'
 ];
 
-// 3. Jackpot data
+const TEAMS = {
+  'England • Premier League': [['Arsenal', 'Chelsea'], ['Man City', 'Spurs'], ['Liverpool', 'Everton'], ['Man Utd', 'Aston Villa']],
+  'Spain • La Liga': [['Real Madrid', 'Barcelona'], ['Atletico', 'Sevilla'], ['Valencia', 'Villarreal'], ['Betis', 'Sociedad']],
+  'Italy • Serie A': [['Juventus', 'Milan'], ['Inter', 'Roma'], ['Napoli', 'Lazio'], ['Atalanta', 'Fiorentina']],
+  'Germany • Bundesliga': [['Bayern', 'Dortmund'], ['Leipzig', 'Leverkusen'], ['Frankfurt', 'Wolfsburg'], ['Gladbach', 'Stuttgart']],
+  'France • Ligue 1': [['PSG', 'Marseille'], ['Lyon', 'Monaco'], ['Lille', 'Rennes'], ['Nice', 'Lens']],
+  'Netherlands • Eredivisie': [['Ajax', 'PSV'], ['Feyenoord', 'AZ'], ['Twente', 'Utrecht'], ['Vitesse', 'Heerenveen']],
+  'Portugal • Primeira Liga': [['Benfica', 'Porto'], ['Sporting', 'Braga'], ['Vitoria', 'Rio Ave'], ['Boavista', 'Famalicao']],
+  'Argentina • Primera LPF': [['Boca Juniors', 'River Plate'], ['Racing Club', 'Independiente'], ['San Lorenzo', 'Huracan'], ['Velez', 'Lanus']],
+  'Brazil • Serie A': [['Flamengo', 'Palmeiras'], ['Santos', 'Sao Paulo'], ['Corinthians', 'Gremio'], ['Atletico Mineiro', 'Fluminense']],
+  'USA • MLS': [['LA Galaxy', 'LAFC'], ['Seattle', 'Portland'], ['Atlanta', 'Miami'], ['NYFC', 'Red Bulls']],
+  'Mexico • Liga MX': [['Club America', 'Chivas'], ['Cruz Azul', 'Pumas'], ['Tigres', 'Monterrey'], ['Toluca', 'Pachuca']],
+  'Japan • J-League': [['Kawasaki', 'Yokohama'], ['Urawa', 'Kashima'], ['Gamba', 'Cerezo'], ['FC Tokyo', 'Nagoya']],
+  'Australia • A-League': [['Sydney FC', 'Melbourne'], ['Wanderers', 'Brisbane'], ['Adelaide', 'Perth'], ['Central Coast', 'Wellington']],
+  'Kenya • FKF Premier': [['Gor Mahia', 'AFC Leopards'], ['Tusker', 'Bandari'], ['Police FC', 'Ulinzi Stars'], ['Sofapaka', 'Kakamega']]
+};
+
+let highlightMatches = [];
+let matchIdCounter = 1;
+
+for (let day = 0; day <= 7; day++) {
+  const numMatches = day === 0 ? 8 : 15; // fewer matches today as many are live
+  for (let i = 0; i < numMatches; i++) {
+    const league = LEAGUES[Math.floor(Math.random() * LEAGUES.length)];
+    const teamPair = TEAMS[league][Math.floor(Math.random() * TEAMS[league].length)];
+    
+    // random hours
+    const hour = Math.floor(Math.random() * 10) + 12; // 12:00 to 21:00
+    const min = Math.random() > 0.5 ? '00' : '30';
+    
+    const odd1 = (Math.random() * 2 + 1.1).toFixed(2);
+    const oddX = (Math.random() * 2 + 2.5).toFixed(2);
+    const odd2 = (Math.random() * 4 + 1.5).toFixed(2);
+
+    highlightMatches.push({
+      id: matchIdCounter++,
+      country: league,
+      home: teamPair[0],
+      away: teamPair[1],
+      date: generateFutureDate(day, `${hour}:${min}`),
+      odds: [parseFloat(odd1), parseFloat(oddX), parseFloat(odd2)]
+    });
+  }
+}\n\n// 3. Jackpot data
 let jackpot = {
   mega: { name: 'Mega Jackpot', amount: 100_000_000, currency: 'KSh', games: 17, minStake: 99 },
   mid:  { name: 'Mid Week Jackpot', amount: 10_000_000, currency: 'KSh', games: 13, minStake: 49 },
