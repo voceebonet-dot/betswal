@@ -35,7 +35,7 @@ function AppInner() {
           body: bet.status === 'Won'
             ? `You won ${bet.possibleWin}! Ticket: ${bet.ticketRef}`
             : `Better luck next time. Ticket: ${bet.ticketRef}`,
-          icon: '/starbet_logo.png',
+          icon: '/starbet_logo.svg',
         });
       }
       prevBetStatuses.current[bet.ticketRef] = bet.status;

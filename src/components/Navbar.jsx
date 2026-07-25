@@ -42,7 +42,7 @@ const Navbar = ({ activeSection, setActiveSection }) => {
         <div className="flex items-center gap-4">
           <div style={{ fontSize: '22px', cursor: 'pointer', color: 'var(--text-muted)', userSelect: 'none' }} onClick={() => handleNav('Home')}>≡</div>
           <div onClick={() => handleNav('Home')} style={{ fontSize: '24px', fontWeight: 900, fontStyle: 'italic', display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', letterSpacing: '-0.5px', userSelect: 'none' }}>
-            <img src="/starbet_logo.png" alt="BetsWal Logo" style={{ width: '34px', height: '34px', borderRadius: '50%', boxShadow: '0 0 14px rgba(254,205,8,0.5)', border: '2px solid rgba(254,205,8,0.3)' }} />
+            <img src="/starbet_logo.svg" alt="BetsWal Logo" style={{ width: '34px', height: '34px', borderRadius: '50%', boxShadow: '0 0 14px rgba(254,205,8,0.5)', border: '2px solid rgba(254,205,8,0.3)' }} />
             <span style={{ color: '#fecd08', textShadow: '0 0 12px rgba(254,205,8,0.4)' }}>Bets</span><span style={{ color: '#86c439', textShadow: '0 0 12px rgba(134,196,57,0.4)' }}>Wal</span>
           </div>
         </div>

@@ -67,7 +67,7 @@ const Footer = ({ setActiveSection }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '2rem', marginBottom: '3rem', paddingBottom: '2rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <div style={{ maxWidth: '320px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-              <img src="/starbet_logo.png" alt="BetsWal Logo" style={{ width: '40px', height: '40px', borderRadius: '50%', boxShadow: '0 0 16px rgba(254,205,8,0.45)', border: '2px solid rgba(254,205,8,0.3)' }} />
+              <img src="/starbet_logo.svg" alt="BetsWal Logo" style={{ width: '40px', height: '40px', borderRadius: '50%', boxShadow: '0 0 16px rgba(254,205,8,0.45)', border: '2px solid rgba(254,205,8,0.3)' }} />
               <span style={{ fontSize: '26px', fontWeight: 900, fontStyle: 'italic', letterSpacing: '-0.5px' }}>
                 <span style={{ color: '#fecd08', textShadow: '0 0 12px rgba(254,205,8,0.4)' }}>Bets</span>
                 <span style={{ color: '#86c439', textShadow: '0 0 12px rgba(134,196,57,0.4)' }}>Wal</span>
