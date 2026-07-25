@@ -35,22 +35,22 @@ const Navbar = ({ activeSection, setActiveSection }) => {
   };
 
   return (
-    <div className="glass-panel" style={{ position: 'sticky', top: 0, zIndex: 100, marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+    <div className="glass-panel" style={{ position: 'sticky', top: 0, zIndex: 100, marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 4px 24px rgba(0,0,0,0.4)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
       {/* ── Top header bar ─────────────────────────────────────── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 1rem', borderBottom: '1px solid rgba(255,255,255,0.02)', height: '56px' }}>
         {/* Logo */}
         <div className="flex items-center gap-4">
           <div style={{ fontSize: '22px', cursor: 'pointer', color: 'var(--text-muted)', userSelect: 'none' }} onClick={() => handleNav('Home')}>≡</div>
-          <div onClick={() => handleNav('Home')} style={{ fontSize: '24px', fontWeight: 900, fontStyle: 'italic', display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', letterSpacing: '-0.5px' }}>
-            <img src="/starbet_logo.png" alt="BetsWal Logo" style={{ width: '32px', height: '32px', borderRadius: '50%', boxShadow: '0 0 10px rgba(254,205,8,0.3)' }} />
-            <span style={{ color: '#fecd08' }}>Bets</span><span style={{ color: '#86c439' }}>Wal</span>
+          <div onClick={() => handleNav('Home')} style={{ fontSize: '24px', fontWeight: 900, fontStyle: 'italic', display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', letterSpacing: '-0.5px', userSelect: 'none' }}>
+            <img src="/starbet_logo.png" alt="BetsWal Logo" style={{ width: '34px', height: '34px', borderRadius: '50%', boxShadow: '0 0 14px rgba(254,205,8,0.5)', border: '2px solid rgba(254,205,8,0.3)' }} />
+            <span style={{ color: '#fecd08', textShadow: '0 0 12px rgba(254,205,8,0.4)' }}>Bets</span><span style={{ color: '#86c439', textShadow: '0 0 12px rgba(134,196,57,0.4)' }}>Wal</span>
           </div>
         </div>
 
         {/* Right actions */}
         <div className="flex items-center gap-4">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: connected ? '#28a745' : '#dc3545' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: connected ? '#28a745' : '#dc3545', display: 'inline-block' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: connected ? '#28a745' : '#dc3545', background: connected ? 'rgba(40,167,69,0.1)' : 'rgba(220,53,69,0.1)', padding: '4px 10px', borderRadius: '20px', border: `1px solid ${connected ? 'rgba(40,167,69,0.3)' : 'rgba(220,53,69,0.3)'}` }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: connected ? '#28a745' : '#dc3545', display: 'inline-block', boxShadow: `0 0 6px ${connected ? '#28a745' : '#dc3545'}` }} />
             {connected ? 'Live' : 'Offline'}
           </div>
 
@@ -135,7 +135,7 @@ const Navbar = ({ activeSection, setActiveSection }) => {
       </div>
 
       {/* ── Main nav row ─────────────────────────────────────────── */}
-      <nav style={{ padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', marginBottom: '1rem', fontSize: '13px', overflowX: 'auto' }}>
+      <nav style={{ padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', overflowX: 'auto', scrollbarWidth: 'none' }}>
         <ul className="flex items-center gap-4" style={{ listStyle: 'none', whiteSpace: 'nowrap', margin: 0, padding: 0 }}>
           {NAV_LINKS.map((link) => {
             const isActive = activeSection === link.section;
@@ -145,23 +145,28 @@ const Navbar = ({ activeSection, setActiveSection }) => {
                 className="nav-item"
                 onClick={() => handleNav(link.section)}
                 style={{
-                  color: link.aviator ? (isActive ? '#fecd08' : '#fecd08aa') : isActive ? 'var(--primary)' : 'var(--text-main)',
+                  color: link.aviator ? (isActive ? '#fecd08' : '#fecd08aa') : isActive ? 'var(--primary)' : 'var(--text-muted)',
                   borderBottom: isActive ? `2px solid ${link.aviator ? '#fecd08' : 'var(--primary)'}` : '2px solid transparent',
-                  padding: '16px 0', cursor: 'pointer',
-                  fontWeight: link.aviator ? 700 : 500,
-                  position: 'relative', transition: 'all 0.3s ease', userSelect: 'none',
+                  padding: '14px 2px', cursor: 'pointer',
+                  fontWeight: link.aviator ? 700 : isActive ? 600 : 400,
+                  position: 'relative', transition: 'all 0.25s ease', userSelect: 'none',
+                  textShadow: isActive && link.aviator ? '0 0 8px rgba(254,205,8,0.5)' : isActive ? '0 0 8px rgba(134,196,57,0.4)' : 'none',
                 }}
               >
                 {getLabel(link)}
                 {link.badge && (
-                  <span style={{ position: 'absolute', top: '4px', right: '-14px', backgroundColor: '#d32f2f', color: '#fff', fontSize: '9px', padding: '1px 3px', borderRadius: '3px' }}>New</span>
+                  <span style={{ position: 'absolute', top: '6px', right: '-14px', background: 'linear-gradient(135deg, #d32f2f, #ff5252)', color: '#fff', fontSize: '8px', padding: '1px 4px', borderRadius: '4px', fontWeight: 800, letterSpacing: '0.3px' }}>NEW</span>
                 )}
               </li>
             );
           })}
         </ul>
-        <div className="flex items-center gap-4" style={{ fontWeight: 500, minWidth: '120px', flexShrink: 0 }}>
-          <div style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '13px' }}>🔍 Search</div>
+        <div className="flex items-center gap-4" style={{ fontWeight: 500, minWidth: '100px', flexShrink: 0 }}>
+          <div style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 10px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.08)', transition: 'all 0.2s' }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(134,196,57,0.4)'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'}>
+            🔍 <span style={{ fontSize: '12px' }}>Search</span>
+          </div>
         </div>
       </nav>
     </div>

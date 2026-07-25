@@ -307,26 +307,33 @@ const SportsContent = ({ activeSport, bets, toggleBet, activeSection, setActiveS
       {/* Hero Banner (Only on Home) */}
       {activeSection === 'Home' && activeSubNav === 'Highlights' && (
         <div className="hero-bg animate-enter" style={{
-          borderRadius: '16px', padding: '2rem', marginBottom: '1.5rem',
+          borderRadius: '16px', padding: '2.5rem 2rem', marginBottom: '1.5rem',
           display: 'flex', flexDirection: 'column', justifyContent: 'center',
-          minHeight: '200px', position: 'relative', overflow: 'hidden',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.05)'
+          minHeight: '220px', position: 'relative', overflow: 'hidden',
+          boxShadow: '0 12px 48px rgba(0,0,0,0.5)', border: '1px solid rgba(134,196,57,0.12)'
         }}>
-          <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', background: 'var(--primary)', filter: 'blur(100px)', opacity: 0.15 }} />
-          <h1 style={{ fontWeight: 900, fontSize: '36px', marginBottom: '8px', zIndex: 1 }}>
+          <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '260px', height: '260px', background: 'var(--primary)', filter: 'blur(120px)', opacity: 0.12 }} />
+          <div style={{ position: 'absolute', bottom: '-40px', left: '30%', width: '200px', height: '200px', background: '#fecd08', filter: 'blur(100px)', opacity: 0.07 }} />
+          <div style={{ fontSize: '11px', color: 'var(--primary)', letterSpacing: '3px', fontWeight: 700, marginBottom: '10px', zIndex: 1 }}>⚡ AFRICA'S #1 BETTING PLATFORM</div>
+          <h1 style={{ fontWeight: 900, fontSize: '34px', marginBottom: '8px', zIndex: 1, lineHeight: 1.1 }}>
             WELCOME TO <span className="text-gradient-primary">BETSWAL!</span>
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '15px', maxWidth: '400px', marginBottom: '1.5rem', zIndex: 1 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', maxWidth: '380px', marginBottom: '1.5rem', zIndex: 1, lineHeight: 1.6 }}>
             Join millions of winners. Bet on your favorite sports, play Aviator, and win massive Jackpots daily.
           </p>
-          <button className="btn btn-primary pulse-btn" style={{ alignSelf: 'flex-start', padding: '12px 32px', fontSize: '15px', fontWeight: 800, borderRadius: '8px', zIndex: 1 }} onClick={() => setActiveSection('Register')}>
-            PLAY NOW 🚀
-          </button>
+          <div style={{ display: 'flex', gap: '10px', zIndex: 1, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary pulse-btn" style={{ padding: '12px 28px', fontSize: '14px', fontWeight: 800, borderRadius: '8px' }} onClick={() => setActiveSection('Register')}>
+              PLAY NOW 🚀
+            </button>
+            <button className="btn" style={{ padding: '12px 20px', fontSize: '13px', fontWeight: 600, borderRadius: '8px', background: 'rgba(255,255,255,0.07)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }} onClick={() => setActiveSection('Aviator')}>
+              ✈️ Try Aviator
+            </button>
+          </div>
         </div>
       )}
 
       {/* Sub Nav */}
-      <div className="flex items-center gap-4" style={{ marginBottom: '1rem', fontWeight: 500, fontSize: '14px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '8px', overflowX: 'auto' }}>
+      <div className="flex items-center gap-4" style={{ marginBottom: '1.25rem', fontWeight: 500, fontSize: '13px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0', overflowX: 'auto', scrollbarWidth: 'none' }}>
         {subnav.map((item) => {
           const isActive = activeSubNav === item.name;
           return (
@@ -335,18 +342,19 @@ const SportsContent = ({ activeSport, bets, toggleBet, activeSection, setActiveS
               onClick={() => handleSubNav(item.name)}
               style={{
                 cursor: 'pointer',
-                color: item.name === 'Aviator' ? (isActive ? '#fecd08' : '#fecd08aa') : isActive ? '#fff' : 'var(--text-main)',
+                color: item.name === 'Aviator' ? (isActive ? '#fecd08' : '#fecd08aa') : isActive ? 'var(--primary)' : 'var(--text-muted)',
                 borderBottom: isActive ? `2px solid ${item.name === 'Aviator' ? '#fecd08' : 'var(--primary)'}` : '2px solid transparent',
-                paddingBottom: '8px',
+                paddingBottom: '10px',
                 display: 'flex', alignItems: 'center', gap: '5px',
-                fontWeight: item.name === 'Aviator' ? 700 : 500,
-                transition: 'color 0.2s', whiteSpace: 'nowrap', flexShrink: 0,
+                fontWeight: item.name === 'Aviator' ? 700 : isActive ? 600 : 400,
+                transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0,
+                textShadow: isActive ? '0 0 8px rgba(134,196,57,0.35)' : 'none',
               }}
             >
-              {item.live && <span style={{ width: '7px', height: '7px', backgroundColor: '#d32f2f', borderRadius: '50%', display: 'inline-block', animation: 'pulse 2s infinite' }} />}
+              {item.live && <span style={{ width: '7px', height: '7px', backgroundColor: '#d32f2f', borderRadius: '50%', display: 'inline-block', animation: 'pulse 2s infinite', boxShadow: '0 0 5px #d32f2f' }} />}
               {item.icon && <span>{item.icon}</span>}
               {item.name}
-              {item.badge && <span style={{ backgroundColor: '#d32f2f', color: '#fff', fontSize: '10px', padding: '1px 4px', borderRadius: '4px' }}>New</span>}
+              {item.badge && <span style={{ background: 'linear-gradient(135deg, #d32f2f, #ff5252)', color: '#fff', fontSize: '9px', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>NEW</span>}
             </div>
           );
         })}

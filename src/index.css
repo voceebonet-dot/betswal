@@ -417,3 +417,55 @@ input.glow-focus:focus {
   border-color: var(--primary) !important;
   box-shadow: 0 4px 16px rgba(134, 196, 57, 0.1);
 }
+
+/* ── Global Scrollbar Polish ───────────────────────────────── */
+nav::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar,
+[style*="overflowX: auto"]::-webkit-scrollbar,
+[style*="scrollbarWidth: none"]::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Card hover lift ──────────────────────────────────────── */
+.card-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+}
+
+/* ── Subtle row separator ─────────────────────────────────── */
+.match-row {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.match-row:last-child {
+  border-bottom: none;
+}
+
+/* ── Highlighted active sport in sidebar ─────────────────── */
+.sidebar-nav-item.active-sport {
+  background: rgba(134,196,57,0.14) !important;
+  color: var(--primary) !important;
+  font-weight: 700 !important;
+  border-left: 2px solid var(--primary) !important;
+}
+
+/* ── Improved button focus rings ─────────────────────────── */
+button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ── Content padding for mobile ──────────────────────────── */
+@media (max-width: 600px) {
+  .hero-bg h1 {
+    font-size: 26px !important;
+  }
+  .hero-bg p {
+    font-size: 13px !important;
+  }
+  .app-layout {
+    gap: 0.75rem;
+  }
+}
