@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { useUser } from '../context/UserContext';
+import { soundEngine } from '../utils/soundEngine';
 
 // ─── Colour helpers ────────────────────────────────────────────────────────────
 const crashColour = (v) => {
@@ -502,6 +503,7 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
     const onState     = ({ phase: p }) => { if (p === 'betting') { setBetPlaced(false); setCashedOut(null); } };
     const onCashedOut = ({ multiplier: m, winnings, auto }) => {
       setCashedOut({ multiplier: m, winnings });
+      soundEngine.playCashout();
       flash(`${auto ? '🤖 Auto' : '✋ Manual'} cashout @ ${m}x → ${country.symbol}${winnings}`, '#fecd08', 4000);
     };
     const onError  = ({ message: e }) => flash(`❌ ${e}`, '#dc3545');
@@ -520,6 +522,7 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
     const ac = mode === 'auto' && autoCashout ? parseFloat(autoCashout) : null;
     socket.emit('aviator_place_bet', { stake: parseFloat(stake), autoCashout: ac });
     setBetPlaced(true);
+    soundEngine.playBet();
     flash('✅ Bet confirmed!', '#86c439');
   };
   const handleCashout = () => {
@@ -638,6 +641,25 @@ const AviatorGame = () => {
   const { country } = useUser();
   const { stats, record } = useSessionStats();
 
+  const [audioMuted, setAudioMuted] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  
+  const toggleAudio = () => {
+    if (!audioEnabled) {
+      soundEngine.init();
+      setAudioEnabled(true);
+    }
+    const isMuted = soundEngine.toggleMute();
+    setAudioMuted(isMuted);
+  };
+  
+  const handleInteraction = () => {
+    if (!audioEnabled) {
+      soundEngine.init();
+      setAudioEnabled(true);
+    }
+  };
+
   const [phase,      setPhase]      = useState('betting');
   const [multiplier, setMultiplier] = useState(1.00);
   const [countdown,  setCountdown]  = useState(5);
@@ -669,13 +691,26 @@ const AviatorGame = () => {
     if (!socket) return;
     const onState     = ({ phase: p, multiplier: m, countdown: c, history: h }) => {
       setPhase(p); setMultiplier(m ?? 1); setCountdown(c ?? 5); setHistory(h ?? []);
-      if (p === 'betting') { setPlanePos(null); }
+      if (p === 'betting') { 
+        setPlanePos(null); 
+        soundEngine.stopFlight();
+      }
+      if (p === 'flying') {
+        soundEngine.startFlight();
+      }
     };
-    const onTick      = ({ multiplier: m }) => setMultiplier(m);
-    const onCountdown = ({ countdown: c }) => setCountdown(c);
+    const onTick      = ({ multiplier: m }) => {
+      setMultiplier(m);
+      soundEngine.updateFlight(m);
+    };
+    const onCountdown = ({ countdown: c }) => {
+      setCountdown(c);
+      soundEngine.playTick();
+    };
     const onCrashed   = ({ crashAt: ca, history: h }) => {
       setCrashAt(ca); setHistory(h); setPhase('crashed'); setPlanePos(null);
       setFlashRed(true);
+      soundEngine.playCrash();
       setTimeout(() => setFlashRed(false), 800);
       if (ca >= 10) addReaction('🏆');
       else if (ca >= 5) addReaction('🚀');
@@ -695,7 +730,7 @@ const AviatorGame = () => {
   const multGlow  = `0 0 40px ${multColor}88, 0 0 80px ${multColor}33`;
 
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', maxWidth: '1120px', margin: '0 auto', userSelect: 'none' }}>
+    <div onClick={handleInteraction} style={{ fontFamily: 'Inter, sans-serif', maxWidth: '1120px', margin: '0 auto', userSelect: 'none' }}>
 
       {/* History row + session stats */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '1rem', flexWrap: 'wrap' }}>
@@ -713,7 +748,10 @@ const AviatorGame = () => {
         </div>
 
         {/* Session mini-stats */}
-        <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: '12px', flexShrink: 0, alignItems: 'center' }}>
+          <button onClick={(e) => { e.stopPropagation(); toggleAudio(); }} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', transition: 'all 0.2s', marginRight: '8px' }}>
+            {(!audioEnabled || audioMuted) ? '🔇' : '🔊'}
+          </button>
           {[['Rounds', stats.rounds], ['Wins', stats.won], ['Best', stats.bigWin ? `${country.symbol}${stats.bigWin}` : '—']].map(([label, val]) => (
             <div key={label} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '13px', fontWeight: 800, color: label === 'Wins' && stats.won > 0 ? '#86c439' : '#fff' }}>{val}</div>
