@@ -624,83 +624,113 @@ export const AppPage = () => (
 // ─── Auth Page ────────────────────────────────────────────────────────────────────
 export const AuthPage = ({ mode = 'login', setActiveSection }) => {
   const isLogin = mode === 'login';
-  const { country, changeCountry, register, login } = useUser();
+  const { country, changeCountry, requestOtp, verifyOtp } = useUser();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [step, setStep] = useState('details'); // 'details' or 'otp'
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError('');
-    if (!phone.trim() || !password.trim()) { setError('Phone and password are required.'); return; }
-    if (!isLogin && !name.trim()) { setError('Full name is required.'); return; }
-    setLoading(true);
-    setTimeout(() => {
-      const result = isLogin
-        ? login(phone.trim(), password)
-        : register(name.trim(), phone.trim(), password, country.id);
+    if (step === 'details') {
+      if (!phone.trim() || !password.trim()) { setError('Phone and password are required.'); return; }
+      if (!isLogin && !name.trim()) { setError('Full name is required.'); return; }
+      
+      setLoading(true);
+      const res = await requestOtp(phone.trim());
       setLoading(false);
-      if (result.ok) {
+      
+      if (res && res.ok) {
+        setStep('otp');
+      } else {
+        setError(res?.error || 'Failed to send OTP.');
+      }
+    } else if (step === 'otp') {
+      if (!otpCode.trim()) { setError('OTP code is required.'); return; }
+      
+      setLoading(true);
+      const res = await verifyOtp(phone.trim(), otpCode.trim(), !isLogin ? name.trim() : '', country.id);
+      
+      if (res && res.ok) {
+        setLoading(false);
         setActiveSection('Home');
       } else {
-        setError(result.error || 'Something went wrong.');
+        setLoading(false);
+        setError(res?.error || 'Invalid OTP code.');
       }
-    }, 400);
+    }
   };
   return (
     <div className="glass-panel animate-enter" style={{ maxWidth: '400px', margin: '3rem auto', padding: '2.5rem 2rem', borderRadius: '16px' }}>
       <h2 style={{ textAlign: 'center', fontWeight: 800, fontSize: '22px', marginBottom: '1.5rem' }}>
         {isLogin ? '🔐 Login' : '📝 Create Account'}
       </h2>
-      {!isLogin && (
+      {step === 'details' ? (
         <>
+          {!isLogin && (
+            <>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Country of Registration</label>
+                <div className="auth-input-container">
+                  <i>🌍</i>
+                  <select
+                    value={country.id}
+                    onChange={(e) => changeCountry(e.target.value)}
+                    className="glow-focus auth-input"
+                    style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', appearance: 'none' }}
+                  >
+                    {Object.values(COUNTRIES).map(c => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.symbol})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Full Name</label>
+                <div className="auth-input-container">
+                  <i>👤</i>
+                  <input type="text" className="glow-focus auth-input" placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
+                </div>
+              </div>
+            </>
+          )}
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Country of Registration</label>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Phone Number</label>
             <div className="auth-input-container">
-              <i>🌍</i>
-              <select
-                value={country.id}
-                onChange={(e) => changeCountry(e.target.value)}
-                className="glow-focus auth-input"
-                style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', appearance: 'none' }}
-              >
-                {Object.values(COUNTRIES).map(c => (
-                  <option key={c.id} value={c.id}>{c.name} ({c.symbol})</option>
-                ))}
-              </select>
+              <i>📱</i>
+              <input type="tel" className="glow-focus auth-input" placeholder="+254 7XX XXX XXX" value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
             </div>
           </div>
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Full Name</label>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Password</label>
             <div className="auth-input-container">
-              <i>👤</i>
-              <input type="text" className="glow-focus auth-input" placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
+              <i>🔒</i>
+              <input type="password" className="glow-focus auth-input" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
             </div>
           </div>
         </>
+      ) : (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Enter SMS Code sent to {phone}</label>
+          <div className="auth-input-container">
+            <i>💬</i>
+            <input type="text" className="glow-focus auth-input" placeholder="123456" value={otpCode} onChange={e => setOtpCode(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', letterSpacing: '4px', textAlign: 'center', fontSize: '18px' }} maxLength={6} />
+          </div>
+          <div style={{ textAlign: 'center', marginTop: '10px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--primary)', cursor: 'pointer' }} onClick={() => setStep('details')}>Back to Details</span>
+          </div>
+        </div>
       )}
-      <div style={{ marginBottom: '1rem' }}>
-        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Phone Number</label>
-        <div className="auth-input-container">
-          <i>📱</i>
-          <input type="tel" className="glow-focus auth-input" placeholder="+254 7XX XXX XXX" value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
-        </div>
-      </div>
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Password</label>
-        <div className="auth-input-container">
-          <i>🔒</i>
-          <input type="password" className="glow-focus auth-input" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
-        </div>
-      </div>
       {error && (
         <div style={{ backgroundColor: 'rgba(220,53,69,0.12)', border: '1px solid rgba(220,53,69,0.35)', borderRadius: '6px', padding: '8px 12px', color: '#dc3545', fontSize: '12px', marginBottom: '1rem', textAlign: 'center' }}>
           ⚠️ {error}
         </div>
       )}
       <button className="btn btn-primary pulse-btn" style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginTop: '0.5rem', opacity: loading ? 0.7 : 1 }} onClick={handleSubmit} disabled={loading}>
-        {loading ? '⏳ Please wait…' : isLogin ? 'Login' : 'Create Account'}
+        {loading ? '⏳ Please wait…' : step === 'otp' ? 'Verify & Login' : isLogin ? 'Send SMS Code' : 'Create Account (Send SMS)'}
       </button>
       <div style={{ textAlign: 'center', marginTop: '1rem', fontSize: '13px', color: 'var(--text-muted)' }}>
         {isLogin ? "Don't have an account? " : 'Already have an account? '}

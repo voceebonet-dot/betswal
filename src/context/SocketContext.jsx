@@ -21,7 +21,11 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (!socketInstance) {
-      socketInstance = io(SOCKET_URL);
+      socketInstance = io(SOCKET_URL, {
+        auth: (cb) => {
+          cb({ token: localStorage.getItem('jwt') });
+        }
+      });
     }
     const s = socketInstance;
     setSocket(s);

@@ -7,9 +7,47 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
-const { connectDB, User, Bet, SharedBetslip, Withdrawal } = require('./db');
+const { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal } = require('./db');
+const jwt = require('jsonwebtoken');
 
-connectDB();
+const JWT_SECRET = process.env.JWT_SECRET || 'betswal-dev-secret-change-in-prod';
+const ADMIN_PHONE = process.env.ADMIN_PHONE || '0000000000';
+
+const signToken = (user) => jwt.sign(
+  { userId: user._id, phone: user.phone, role: user.role },
+  JWT_SECRET,
+  { expiresIn: '30d' }
+);
+
+const verifyToken = (token) => {
+  try { return jwt.verify(token, JWT_SECRET); }
+  catch { return null; }
+};
+
+connectDB().then(async () => {
+  // Load persistent admin stats from DB on startup
+  try {
+    const agg = await Bet.aggregate([{ $group: { _id: null, total: { $sum: 1 }, staked: { $sum: '$stake' } } }]);
+    if (agg.length > 0) {
+      adminStats.totalBets   = agg[0].total  || 0;
+      adminStats.totalStaked = agg[0].staked || 0;
+      console.log(`📊 Loaded stats from DB: ${adminStats.totalBets} bets, ${adminStats.totalStaked} staked`);
+    }
+    // Load last 50 bets for log
+    const recentBets = await Bet.find().sort({ createdAt: -1 }).limit(50).lean();
+    adminStats.betsLog = recentBets.map(b => ({
+      ticketRef: b.ticketRef, stake: b.stake, possibleWin: b.possibleWin,
+      time: b.createdAt.toISOString(), status: b.status,
+    }));
+    // Load pending withdrawals
+    const pending = await Withdrawal.find({ status: 'Pending' }).lean();
+    adminStats.pendingWithdrawals = pending.map(w => ({
+      reqId: w.reqId, phone: w.phone, amount: w.amount, status: w.status, time: w.createdAt.toISOString()
+    }));
+  } catch (err) {
+    console.error('DB stats load error:', err.message);
+  }
+});
 
 const app = express();
 // Security middlewares
@@ -192,13 +230,13 @@ let leaderboard = [
   { phone: '08****34', amount: 9850,  game: 'Crash',             flag: '🇺🇬' },
 ];
 
-// 10. Admin stats
+// 10. Admin stats (seeded from DB after connectDB resolves)
 let adminStats = {
   totalBets: 0,
   totalStaked: 0,
   activeUsers: 0,
   betsLog: [],
-  pendingWithdrawals: [] // { reqId, phone, amount, status: 'Pending', time }
+  pendingWithdrawals: [],
 };
 
 // 11. Jackpot pool
@@ -373,10 +411,22 @@ setInterval(() => {
 }, 1000);
 
 // ─────────────────────────────────────────────────────────────────
+// SOCKET.IO MIDDLEWARE — attach decoded user from JWT if present
+// ─────────────────────────────────────────────────────────────────
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (token) {
+    const decoded = verifyToken(token);
+    if (decoded) socket.user = decoded;
+  }
+  next();
+});
+
+// ─────────────────────────────────────────────────────────────────
 // SOCKET.IO CONNECTION
 // ─────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
-  console.log(`✅ Client connected: ${socket.id}`);
+  console.log(`✅ Client connected: ${socket.id}${socket.user ? ' (user: ' + socket.user.phone + ')' : ''}`);
 
   // Send current snapshots immediately
   socket.emit('live_match_update', liveMatches);
@@ -388,24 +438,40 @@ io.on('connection', (socket) => {
   socket.emit('fasta_update', fastaMarkets);
   socket.emit('leaderboard_update', leaderboard);
   socket.emit('jackpot_pool_update', jackpotPool);
-  
+
+  // Send balance to authenticated user
+  if (socket.user) {
+    User.findById(socket.user.userId).then(u => {
+      if (u) socket.emit('balance_update', { balance: u.balance });
+    }).catch(() => {});
+  }
+
   adminStats.activeUsers = io.engine.clientsCount;
 
   // ── Admin Subscription ───────────────────────────────────────
   socket.on('admin_subscribe', () => {
-    // In a production app, verify a secure token before allowing join.
+    if (!socket.user || socket.user.role !== 'admin') {
+      return socket.emit('admin_error', { message: 'Unauthorized' });
+    }
     socket.join('admins');
     socket.emit('admin_stats', adminStats);
   });
 
   // ── Admin Actions ────────────────────────────────────────────
   socket.on('admin_settle_bet', async ({ ticketRef, status }) => {
+    if (!socket.user || socket.user.role !== 'admin') return;
     // Update in-memory log
     const bet = adminStats.betsLog.find(b => b.ticketRef === ticketRef);
     if (bet) bet.status = status;
-    // Persist to MongoDB
+    // Persist to MongoDB and credit winnings if Won
     try {
-      await Bet.findOneAndUpdate({ ticketRef }, { status });
+      const dbBet = await Bet.findOneAndUpdate({ ticketRef }, { status }, { new: true });
+      if (dbBet && status === 'Won' && dbBet.userId) {
+        await User.findByIdAndUpdate(dbBet.userId, {
+          $inc: { balance: dbBet.possibleWin, totalWon: dbBet.possibleWin }
+        });
+        await Transaction.create({ userId: dbBet.userId, phone: dbBet.phone, type: 'winnings', amount: dbBet.possibleWin, ref: ticketRef });
+      }
     } catch (err) {
       console.error('DB Error settling bet:', err);
     }
@@ -517,20 +583,37 @@ io.on('connection', (socket) => {
     const isValid = bets.every(b => b && typeof b.odds === 'number' && b.odds >= 1.01);
     if (!isValid) return socket.emit('bet_error', { message: 'Invalid odds detected in betslip.' });
 
-    // In production: deduct balance atomically, write to DB
     const totalOdds = bets.reduce((acc, b) => acc * b.odds, 1);
-    const possibleWin = (totalOdds * stakeNum).toFixed(2);
+    const possibleWin = parseFloat((totalOdds * stakeNum).toFixed(2));
     const ticketRef = 'BET-' + Date.now();
-    
-    // Save to MongoDB
+
+    // Deduct balance from DB if authenticated user
+    if (socket.user) {
+      try {
+        const dbUser = await User.findById(socket.user.userId);
+        if (!dbUser || dbUser.balance < stakeNum) {
+          return socket.emit('bet_error', { message: 'Insufficient balance.' });
+        }
+        await User.findByIdAndUpdate(socket.user.userId, { $inc: { balance: -stakeNum, totalBets: 1 } });
+        await Transaction.create({ userId: dbUser._id, phone: dbUser.phone, type: 'bet_stake', amount: stakeNum, ref: ticketRef });
+        // Notify client of updated balance
+        socket.emit('balance_update', { balance: dbUser.balance - stakeNum });
+      } catch (err) {
+        console.error('DB Error deducting balance:', err);
+      }
+    }
+
+    // Save bet to MongoDB
     try {
       await Bet.create({
         ticketRef,
+        userId: socket.user?.userId || null,
+        phone: socket.user?.phone || 'guest',
         stake: stakeNum,
         totalOdds: parseFloat(totalOdds.toFixed(2)),
-        possibleWin: parseFloat(possibleWin),
+        possibleWin,
         bets,
-        status: 'Pending'
+        status: 'Pending',
       });
     } catch (err) {
       console.error('DB Error placing bet:', err);
@@ -784,49 +867,90 @@ app.post('/api/auth/send-otp', async (req, res) => {
 });
 
 app.post('/api/auth/verify-otp', async (req, res) => {
-  const { phone, code } = req.body;
+  const { phone, code, name, countryId } = req.body;
   if (!phone || !code) return res.status(400).json({ ok: false, error: 'Phone and code are required' });
 
-  if (!twilioClient || !process.env.TWILIO_VERIFY_SERVICE_SID) {
-    // Mock for local dev
-    if (code === '123456') {
-      return res.json({ ok: true, status: 'approved' });
-    }
-    return res.status(400).json({ ok: false, error: 'Invalid code (mock requires 123456)' });
-  }
+  const approved = (() => {
+    if (!twilioClient || !process.env.TWILIO_VERIFY_SERVICE_SID) return code === '123456';
+    return null; // handled async below
+  })();
 
+  const issueToken = async () => {
+    // Upsert user in DB
+    const role = phone === ADMIN_PHONE ? 'admin' : 'user';
+    const user = await User.findOneAndUpdate(
+      { phone },
+      { $setOnInsert: { phone, name: name || '', role, countryId: countryId || 'KE', balance: 0 } },
+      { upsert: true, new: true }
+    );
+    const token = signToken(user);
+    return res.json({ ok: true, status: 'approved', token, user: { phone: user.phone, name: user.name, role: user.role, balance: user.balance, countryId: user.countryId } });
+  };
+
+  if (approved === true) return issueToken();
+  if (approved === false) return res.status(400).json({ ok: false, error: 'Invalid code (mock requires 123456)' });
+
+  // Real Twilio check
   try {
     const verificationCheck = await twilioClient.verify.v2.services(process.env.TWILIO_VERIFY_SERVICE_SID)
-      .verificationChecks
-      .create({ to: phone, code: code });
-      
+      .verificationChecks.create({ to: phone, code });
     if (verificationCheck.status === 'approved') {
-      res.json({ ok: true, status: 'approved' });
-    } else {
-      res.status(400).json({ ok: false, error: 'Invalid or expired code' });
+      return issueToken();
     }
+    res.status(400).json({ ok: false, error: 'Invalid or expired code' });
   } catch (error) {
     console.error('Twilio Error (verify):', error);
     res.status(500).json({ ok: false, error: 'Failed to verify OTP' });
   }
 });
 
-// Leaderboard — shuffle/drift every 15 seconds
-const LEADERBOARD_NAMES = [
-  { phone: '07****23', flag: '🇰🇪' }, { phone: '08****17', flag: '🇳🇬' },
-  { phone: '07****55', flag: '🇬🇭' }, { phone: '07****99', flag: '🇿🇦' },
-  { phone: '08****34', flag: '🇺🇬' }, { phone: '07****01', flag: '🇹🇿' },
-  { phone: '09****88', flag: '🇰🇪' }, { phone: '07****77', flag: '🇳🇬' },
-];
+// Get current user profile + balance (JWT protected)
+app.get('/api/user/me', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ ok: false, error: 'No token' });
+  const decoded = verifyToken(authHeader.replace('Bearer ', ''));
+  if (!decoded) return res.status(401).json({ ok: false, error: 'Invalid token' });
+  try {
+    const user = await User.findById(decoded.userId).lean();
+    if (!user) return res.status(404).json({ ok: false, error: 'User not found' });
+    res.json({ ok: true, user: { phone: user.phone, name: user.name, role: user.role, balance: user.balance, countryId: user.countryId, totalWon: user.totalWon } });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: 'Server error' });
+  }
+});
+
+// Credit balance after deposit (in real app, verify M-Pesa callback here)
+app.post('/api/deposit', async (req, res) => {
+  const { amount, phone, method } = req.body;
+  if (!amount || amount <= 0) return res.status(400).json({ ok: false, error: 'Invalid amount' });
+  try {
+    const user = await User.findOneAndUpdate({ phone }, { $inc: { balance: parseFloat(amount) } }, { new: true });
+    if (user) await Transaction.create({ userId: user._id, phone, type: 'deposit', amount: parseFloat(amount), ref: 'DEP-' + Date.now() });
+  } catch (err) { console.error('Deposit DB error:', err); }
+  res.json({ ok: true, ref: 'DEP-' + Date.now(), amount, method: method || 'M-Pesa', message: 'STK push sent to ' + phone });
+});
+
+// Leaderboard — real top winners from DB every 30 seconds, fallback to random if empty
 const LEADERBOARD_GAMES = ['Jackpot', 'Aviator', 'Virtual Champions', 'Casino', 'Crash', 'Virtual World Cup', 'BetsWal Fasta'];
-setInterval(() => {
-  leaderboard = LEADERBOARD_NAMES.slice().sort(() => Math.random() - 0.5).slice(0, 5).map((p, i) => ({
-    ...p,
-    amount: Math.floor(Math.random() * 90000) + 5000,
-    game: LEADERBOARD_GAMES[Math.floor(Math.random() * LEADERBOARD_GAMES.length)],
-  })).sort((a, b) => b.amount - a.amount);
+const COUNTRY_FLAGS = { KE: '🇰🇪', NG: '🇳🇬', GH: '🇬🇭', ZA: '🇿🇦', UG: '🇺🇬', TZ: '🇹🇿' };
+const refreshLeaderboard = async () => {
+  try {
+    const topUsers = await User.find({ totalWon: { $gt: 0 } }).sort({ totalWon: -1 }).limit(5).lean();
+    if (topUsers.length > 0) {
+      leaderboard = topUsers.map(u => ({
+        phone: u.phone.replace(/^(\d{2})(\d+)(\d{2})$/, (_, a, m, b) => a + '*'.repeat(m.length) + b),
+        amount: u.totalWon,
+        game: LEADERBOARD_GAMES[Math.floor(Math.random() * LEADERBOARD_GAMES.length)],
+        flag: COUNTRY_FLAGS[u.countryId] || '🌍',
+      }));
+    }
+    // If no real winners yet, keep existing (static seed)
+  } catch (err) {
+    console.error('Leaderboard refresh error:', err.message);
+  }
   io.emit('leaderboard_update', leaderboard);
-}, 15000);
+};
+setInterval(refreshLeaderboard, 30000);
 
 // Admin stats heartbeat every 5s (only to admins)
 setInterval(() => {

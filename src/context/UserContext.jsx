@@ -1,16 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useSocket } from './SocketContext';
 
-// Simple synchronous hash function to obscure passwords in localStorage (Mock security)
-const hashPassword = (str) => {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return hash.toString(16);
-};
+// User Context handles session and wallet
 
 // Country definitions with exchange rates relative to KSh (base 1)
 export const COUNTRIES = {
@@ -54,42 +45,77 @@ export const UserProvider = ({ children }) => {
   const socketCtx = useSocket();
   const socket = socketCtx?.socket;
 
-  // Simulated registered users pool (in real app this would be a server call)
-  const getRegistered = () => load('betSiteRegistered', []);
-  const saveRegistered = (list) => localStorage.setItem('betSiteRegistered', JSON.stringify(list));
+  // API Base URL
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-  const register = (name, phone, password, countryId) => {
-    const list = getRegistered();
-    if (list.find(u => u.phone === phone)) return { ok: false, error: 'Phone already registered' };
-    
-    // Hash password before storing
-    const hashedPassword = hashPassword(password);
-    const newUser = { id: Date.now(), name, phone, password: hashedPassword, countryId, isAdmin: phone === '0000000000', joinedAt: new Date().toISOString() };
-    
-    saveRegistered([...list, newUser]);
-    setUser(newUser);
-    setWallet(0);
-    if (countryId) setCountryCode(countryId);
-    
-    if (newUser.isAdmin && socket) socket.emit('admin_subscribe');
-    return { ok: true };
+  // ── Rehydrate Session ────────────────────────────────────────────────────
+  useEffect(() => {
+    const token = localStorage.getItem('jwt');
+    if (token) {
+      fetch(`${API_URL}/user/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          setUser(data.user);
+          setWallet(data.user.balance);
+          if (data.user.countryId) setCountryCode(data.user.countryId);
+        } else {
+          localStorage.removeItem('jwt');
+          setUser(null);
+        }
+      })
+      .catch(console.error);
+    }
+  }, []);
+
+  const requestOtp = async (phone) => {
+    try {
+      const res = await fetch(`${API_URL}/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json();
+      return data;
+    } catch (error) {
+      console.error('Request OTP Error:', error);
+      return { ok: false, error: 'Network error' };
+    }
   };
 
-  const login = (phone, password) => {
-    const list = getRegistered();
-    const hashedPassword = hashPassword(password);
-    const found = list.find(u => u.phone === phone && u.password === hashedPassword);
-    
-    if (!found) return { ok: false, error: 'Invalid phone or password' };
-    
-    setUser(found);
-    if (found.countryId) setCountryCode(found.countryId);
-    if (found.isAdmin && socket) socket.emit('admin_subscribe');
-    
-    return { ok: true };
+  const verifyOtp = async (phone, code, name, countryId) => {
+    try {
+      const res = await fetch(`${API_URL}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code, name, countryId }),
+      });
+      const data = await res.json();
+      if (data.ok && data.token) {
+        localStorage.setItem('jwt', data.token);
+        setUser(data.user);
+        setWallet(data.user.balance);
+        if (data.user.countryId) setCountryCode(data.user.countryId);
+        
+        // Force socket reconnection with new token
+        if (socket) {
+          socket.disconnect().connect();
+        }
+      }
+      return data;
+    } catch (error) {
+      console.error('Verify OTP Error:', error);
+      return { ok: false, error: 'Network error' };
+    }
   };
 
-  const logout = () => { setUser(null); };
+  const logout = () => { 
+    localStorage.removeItem('jwt');
+    setUser(null); 
+    if (socket) socket.disconnect().connect(); // clear auth state
+  };
 
   // Re-subscribe to admin stats on reload if user is admin
   useEffect(() => {
@@ -160,12 +186,25 @@ export const UserProvider = ({ children }) => {
   }, [socket, user]);
 
   // ── Wallet ────────────────────────────────────────────────────────────────
-  const deposit = (amount) => {
+  const deposit = async (amount) => {
     const amt = parseFloat(amount);
     if (isNaN(amt) || amt <= 0) return { ok: false, error: 'Invalid amount' };
-    setWallet(prev => prev + amt);
-    setTransactions(prev => [{ type: 'deposit', amount: amt, date: new Date().toISOString(), ref: `DEP-${Date.now()}` }, ...prev]);
-    return { ok: true };
+    try {
+      const res = await fetch(`${API_URL}/deposit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: amt, phone: user?.phone })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setWallet(prev => prev + amt);
+        setTransactions(prev => [{ type: 'deposit', amount: amt, date: new Date().toISOString(), ref: data.ref }, ...prev]);
+        return { ok: true };
+      }
+      return { ok: false, error: data.error };
+    } catch (err) {
+      return { ok: false, error: 'Network error' };
+    }
   };
 
   const withdraw = (amount) => {
@@ -236,20 +275,17 @@ export const UserProvider = ({ children }) => {
   };
 
   return (
-    <UserContext.Provider value={{
-      // Country
-      country, changeCountry, formatCurrency,
-      // User
-      user, login, logout, register,
-      // Wallet
-      wallet, deposit, withdraw, deductStake, creditWinnings, transactions,
-      // Responsible Gambling
-      spendLimit, setDailyLimit, setWeeklyLimit,
-      selfExclusion, excludeSelf, isExcluded,
-      realityCheck, setRealityCheck,
-      // Bets
-      myBets, addBetToHistory, setMyBets,
-    }}>
+    <UserContext.Provider
+      value={{
+        country, changeCountry, formatCurrency,
+        user, logout, requestOtp, verifyOtp,
+        wallet, deposit, withdraw, deductStake, transactions, creditWinnings,
+        myBets, setMyBets, addBetToHistory,
+        spendLimit, setSpendLimit, setDailyLimit, setWeeklyLimit,
+        selfExclusion, setSelfExclusion, isExcluded, excludeSelf,
+        realityCheck, setRealityCheck
+      }}
+    >
       {children}
     </UserContext.Provider>
   );
