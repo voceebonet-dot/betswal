@@ -172,16 +172,42 @@ export const UserProvider = ({ children }) => {
       }
     };
 
+    const onBalanceUpdate = ({ balance }) => {
+      setWallet(balance);
+    };
+
+    const onBalanceUpdateTarget = ({ userId, balance }) => {
+      if (user && user.userId === userId) {
+        setWallet(balance);
+      }
+    };
+
+    const onWithdrawalSuccess = ({ message }) => {
+      alert(`✅ ${message}`);
+    };
+
+    const onWithdrawalError = ({ message }) => {
+      alert(`❌ Withdrawal Failed: ${message}`);
+    };
+
     socket.on('withdrawal_approved', onWithdrawalApproved);
     socket.on('withdrawal_rejected', onWithdrawalRejected);
+    socket.on('withdrawal_success', onWithdrawalSuccess);
+    socket.on('withdrawal_error', onWithdrawalError);
     socket.on('bet_settled', onBetSettled);
     socket.on('promo_broadcast', onPromoBroadcast);
+    socket.on('balance_update', onBalanceUpdate);
+    socket.on('balance_update_target', onBalanceUpdateTarget);
 
     return () => {
       socket.off('withdrawal_approved', onWithdrawalApproved);
       socket.off('withdrawal_rejected', onWithdrawalRejected);
+      socket.off('withdrawal_success', onWithdrawalSuccess);
+      socket.off('withdrawal_error', onWithdrawalError);
       socket.off('bet_settled', onBetSettled);
       socket.off('promo_broadcast', onPromoBroadcast);
+      socket.off('balance_update', onBalanceUpdate);
+      socket.off('balance_update_target', onBalanceUpdateTarget);
     };
   }, [socket, user]);
 

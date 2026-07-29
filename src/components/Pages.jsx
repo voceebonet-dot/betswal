@@ -896,3 +896,159 @@ export const ResponsiblePage = ({ setActiveSection }) => {
     </div>
   );
 };
+
+// ─── Profile Page ──────────────────────────────────────────────────────────────
+export const ProfilePage = ({ setActiveSection }) => {
+  const { user, wallet, formatCurrency } = useUser();
+  const [tab, setTab] = React.useState('Bets');
+  const [data, setData] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const API_URL = import.meta.env.VITE_API_URL || '';
+
+  React.useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    setError('');
+    const token = localStorage.getItem('betswal_token');
+    fetch(`${API_URL}/api/user/history`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) setData(d);
+        else setError(d.error || 'Failed to load history');
+        setLoading(false);
+      })
+      .catch(() => { setError('Network error'); setLoading(false); });
+  }, [user]);
+
+  if (!user) return (
+    <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+      <div style={{ fontSize: '60px', marginBottom: '1rem' }}>👤</div>
+      <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Please log in to view your profile.</p>
+      <button className='btn btn-primary' onClick={() => setActiveSection('Login')}>Login Now</button>
+    </div>
+  );
+
+  const tabStyle = (t) => ({
+    padding: '10px 18px', cursor: 'pointer', fontWeight: 600, fontSize: '14px',
+    borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
+    color: tab === t ? 'var(--primary)' : 'var(--text-muted)',
+    background: 'none', border: 'none', transition: 'all 0.2s',
+  });
+
+  const statusColor = (s) => s === 'Won' ? '#86c439' : s === 'Lost' ? '#dc3545' : '#ffc107';
+
+  return (
+    <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+      {/* Profile Header Card */}
+      <div className='glass-panel' style={{ padding: '1.5rem', borderRadius: '16px', marginBottom: '1.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), #00d2ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>
+          👤
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', marginBottom: '4px' }}>{user.name || 'BetsWal User'}</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{user.phone}</div>
+        </div>
+        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+          {[
+            { label: 'Balance', value: formatCurrency(wallet), color: 'var(--primary)' },
+            { label: 'Bets Placed', value: data?.bets?.length ?? '—', color: '#fecd08' },
+            { label: 'Jackpot Tickets', value: data?.jackpotTickets?.length ?? '—', color: '#e74c3c' },
+          ].map(k => (
+            <div key={k.label} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>{k.label}</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: k.color }}>{k.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab Nav */}
+      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '1.5rem' }}>
+        {['Bets', 'Transactions', 'Jackpot Tickets'].map(t => (
+          <button key={t} style={tabStyle(t)} onClick={() => setTab(t)}>{t}</button>
+        ))}
+      </div>
+
+      {loading && <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Loading history...</div>}
+      {error && <div style={{ textAlign: 'center', padding: '2rem', color: '#dc3545' }}>{error}</div>}
+
+      {/* BETS TAB */}
+      {!loading && !error && tab === 'Bets' && (
+        <div className='glass-panel' style={{ padding: '1.25rem', borderRadius: '12px' }}>
+          {data?.bets?.length > 0 ? data.bets.map((bet, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: i < data.bets.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontFamily: 'monospace', color: '#fecd08', fontSize: '12px', marginBottom: '4px' }}>{bet.ticketRef}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{new Date(bet.createdAt).toLocaleString()} · {bet.bets?.length || 0} selections</div>
+              </div>
+              <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Stake</div>
+                  <div style={{ fontWeight: 700 }}>{formatCurrency(bet.stake)}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Potential Win</div>
+                  <div style={{ fontWeight: 700, color: '#86c439' }}>{formatCurrency(bet.possibleWin)}</div>
+                </div>
+                <div style={{ minWidth: '60px', textAlign: 'center', fontWeight: 700, color: statusColor(bet.status), fontSize: '13px', background: `${statusColor(bet.status)}22`, borderRadius: '6px', padding: '4px 10px' }}>{bet.status}</div>
+              </div>
+            </div>
+          )) : <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No bets placed yet.</div>}
+        </div>
+      )}
+
+      {/* TRANSACTIONS TAB */}
+      {!loading && !error && tab === 'Transactions' && (
+        <div className='glass-panel' style={{ padding: '1.25rem', borderRadius: '12px' }}>
+          {data?.transactions?.length > 0 ? data.transactions.map((t, i) => {
+            const isCredit = ['deposit', 'winnings'].includes(t.type);
+            const icons = { deposit: '💳', winnings: '🏆', bet_stake: '🎯', withdrawal: '💸' };
+            const labels = { deposit: 'Deposit', winnings: 'Winnings', bet_stake: 'Bet Stake', withdrawal: 'Withdrawal' };
+            return (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: i < data.transactions.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isCredit ? 'rgba(40,167,69,0.15)' : 'rgba(220,53,69,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>
+                    {icons[t.type] || '💰'}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '14px', color: '#fff' }}>{labels[t.type] || t.type}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{new Date(t.createdAt).toLocaleString()}</div>
+                  </div>
+                </div>
+                <div style={{ fontWeight: 800, color: isCredit ? '#28a745' : '#dc3545', fontSize: '16px' }}>
+                  {isCredit ? '+' : '-'}{formatCurrency(t.amount)}
+                </div>
+              </div>
+            );
+          }) : <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No transactions yet.</div>}
+        </div>
+      )}
+
+      {/* JACKPOT TICKETS TAB */}
+      {!loading && !error && tab === 'Jackpot Tickets' && (
+        <div className='glass-panel' style={{ padding: '1.25rem', borderRadius: '12px' }}>
+          {data?.jackpotTickets?.length > 0 ? data.jackpotTickets.map((t, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: i < data.jackpotTickets.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontFamily: 'monospace', color: '#fecd08', fontSize: '12px', marginBottom: '4px' }}>{t.ticketRef}</div>
+                <div style={{ fontWeight: 600, color: '#fff', fontSize: '14px', marginBottom: '2px' }}>{t.jackpotName}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{new Date(t.createdAt).toLocaleString()}</div>
+              </div>
+              <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Stake</div>
+                  <div style={{ fontWeight: 700 }}>{formatCurrency(t.stake)}</div>
+                </div>
+                <div style={{ minWidth: '60px', textAlign: 'center', fontWeight: 700, color: statusColor(t.status), fontSize: '13px', background: `${statusColor(t.status)}22`, borderRadius: '6px', padding: '4px 10px' }}>{t.status}</div>
+              </div>
+            </div>
+          )) : <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No jackpot tickets yet.</div>}
+        </div>
+      )}
+    </div>
+  );
+};

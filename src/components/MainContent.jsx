@@ -5,6 +5,7 @@ import {
   CasinoPage, VirtualsPage, CrashGamesPage, LigiBigiPage,
   ShikishaPage, BetsWalFastaPage, PromotionsPage, LiveScorePage,
   AppPage, AuthPage, DepositPage, WithdrawPage, AccountPage, ResponsiblePage,
+  ProfilePage,
 } from './Pages';
 import AdminDashboard from './AdminDashboard';
 
@@ -422,6 +423,7 @@ const MainContent = ({ activeSport, bets, toggleBet, activeSection, setActiveSec
     case 'Withdraw':     return <WithdrawPage setActiveSection={setActiveSection} />;
     case 'Account':      return <AccountPage setActiveSection={setActiveSection} />;
     case 'Responsible':  return <ResponsiblePage setActiveSection={setActiveSection} />;
+    case 'Profile':      return <ProfilePage setActiveSection={setActiveSection} />;
     case 'Admin':        return <AdminDashboard />;
     default:
       // Sports layout sections all share the SportsContent sub-router

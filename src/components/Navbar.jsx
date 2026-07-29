@@ -86,6 +86,7 @@ const Navbar = ({ activeSection, setActiveSection }) => {
                   <div style={{ position: 'absolute', right: 0, top: '110%', backgroundColor: '#17212b', border: '1px solid var(--border-color)', borderRadius: '10px', minWidth: '180px', zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
                     {[
                       { icon: '👤', label: 'My Account',     section: 'Account' },
+                      { icon: '📊', label: 'My Profile',      section: 'Profile' },
                       { icon: '💳', label: 'Deposit',         section: 'Deposit' },
                       { icon: '💸', label: 'Withdraw',        section: 'Withdraw' },
                       { icon: '🎟️', label: 'My Bets',        section: null, action: 'mybets' },

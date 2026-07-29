@@ -7,7 +7,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
-const { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal } = require('./db');
+const { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket } = require('./db');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'betswal-dev-secret-change-in-prod';
@@ -490,6 +490,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('approve_withdrawal', async ({ reqId }) => {
+    if (!socket.user || socket.user.role !== 'admin') return;
     const req = adminStats.pendingWithdrawals.find(r => r.reqId === reqId);
     if (req) {
       req.status = 'Approved';
@@ -505,6 +506,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('reject_withdrawal', async ({ reqId }) => {
+    if (!socket.user || socket.user.role !== 'admin') return;
     const req = adminStats.pendingWithdrawals.find(r => r.reqId === reqId);
     if (req) {
       req.status = 'Rejected';
@@ -512,7 +514,12 @@ io.on('connection', (socket) => {
       adminStats.pendingWithdrawals = adminStats.pendingWithdrawals.filter(r => r.reqId !== reqId);
       io.to('admins').emit('admin_stats', adminStats);
       try {
-        await Withdrawal.findOneAndUpdate({ reqId }, { status: 'Rejected' });
+        const w = await Withdrawal.findOneAndUpdate({ reqId }, { status: 'Rejected' });
+        if (w && w.userId) {
+          // Refund user
+          const u = await User.findByIdAndUpdate(w.userId, { $inc: { balance: w.amount } }, { new: true });
+          if (u) io.emit('balance_update_target', { userId: u._id.toString(), balance: u.balance });
+        }
       } catch (err) {
         console.error('DB Error rejecting withdrawal:', err);
       }
@@ -520,17 +527,37 @@ io.on('connection', (socket) => {
   });
 
   // ── User Withdrawal Request ──────────────────────────────────
-  socket.on('request_withdrawal', async ({ phone, amount }) => {
+  socket.on('request_withdrawal', async ({ amount }) => {
+    if (!socket.user) return socket.emit('withdrawal_error', { message: 'Unauthorized' });
     if (!checkRateLimit(socket.id, 'request_withdrawal', 3, 10000)) {
       return socket.emit('withdrawal_error', { message: 'Too many requests.' });
     }
-    const reqId = 'WDR-' + Date.now();
-    adminStats.pendingWithdrawals.push({ reqId, phone, amount, status: 'Pending', time: new Date().toISOString() });
-    io.to('admins').emit('admin_stats', adminStats);
+    
+    const amt = parseFloat(amount);
+    if (isNaN(amt) || amt <= 0) return socket.emit('withdrawal_error', { message: 'Invalid amount' });
+
     try {
-      await Withdrawal.create({ reqId, phone, amount, status: 'Pending' });
+      const dbUser = await User.findById(socket.user.userId);
+      if (!dbUser || dbUser.balance < amt) {
+        return socket.emit('withdrawal_error', { message: 'Insufficient balance.' });
+      }
+
+      // Deduct balance
+      await User.findByIdAndUpdate(socket.user.userId, { $inc: { balance: -amt } });
+      const reqId = 'WDR-' + Date.now();
+      
+      await Withdrawal.create({ reqId, phone: dbUser.phone, userId: dbUser._id, amount: amt, status: 'Pending' });
+      await Transaction.create({ userId: dbUser._id, phone: dbUser.phone, type: 'withdrawal', amount: amt, ref: reqId });
+      
+      socket.emit('balance_update', { balance: dbUser.balance - amt });
+      socket.emit('withdrawal_success', { message: 'Withdrawal requested successfully.' });
+
+      adminStats.pendingWithdrawals.push({ reqId, phone: dbUser.phone, amount: amt, status: 'Pending', time: new Date().toISOString() });
+      io.to('admins').emit('admin_stats', adminStats);
+
     } catch (err) {
-      console.error('DB Error saving withdrawal:', err);
+      console.error('DB Error requesting withdrawal:', err);
+      socket.emit('withdrawal_error', { message: 'An error occurred while processing.' });
     }
   });
 
@@ -561,6 +588,112 @@ io.on('connection', (socket) => {
       socket.emit('betslip_loaded', { bets: entry.bets });
     } else {
       socket.emit('betslip_error', { message: `No betslip found for code: ${code}` });
+    }
+  });
+
+  // ── Place Jackpot Stake ──────────────────────────────────────────
+  socket.on('place_jackpot_stake', async ({ jackpotKey, jackpotName, selections, games }) => {
+    if (!socket.user) return socket.emit('jackpot_error', { message: 'Please log in to place a jackpot stake.' });
+    if (!checkRateLimit(socket.id, 'jackpot_stake', 3, 10000)) {
+      return socket.emit('jackpot_error', { message: 'Too many requests. Please wait.' });
+    }
+
+    const jackpotInfo = jackpot[jackpotKey];
+    if (!jackpotInfo) return socket.emit('jackpot_error', { message: 'Invalid jackpot type.' });
+
+    const stake = jackpotInfo.minStake || 99;
+
+    try {
+      const dbUser = await User.findById(socket.user.userId);
+      if (!dbUser || dbUser.balance < stake) {
+        return socket.emit('jackpot_error', { message: `Insufficient balance. Min stake is KSh ${stake}.` });
+      }
+
+      // Deduct balance
+      await User.findByIdAndUpdate(socket.user.userId, { $inc: { balance: -stake, totalBets: 1 } });
+      const ticketRef = 'JP-' + Date.now();
+      
+      await JackpotTicket.create({
+        ticketRef, userId: dbUser._id, phone: dbUser.phone,
+        jackpotKey, jackpotName: jackpotInfo.name,
+        stake, selections, games, status: 'Pending'
+      });
+
+      await Transaction.create({ userId: dbUser._id, phone: dbUser.phone, type: 'bet_stake', amount: stake, ref: ticketRef });
+
+      socket.emit('balance_update', { balance: dbUser.balance - stake });
+      socket.emit('jackpot_stake_confirmed', { ticketRef, jackpotName: jackpotInfo.name, stake, selections: Object.keys(selections).length });
+
+      adminStats.totalBets += 1;
+      adminStats.totalStaked += stake;
+      io.to('admins').emit('admin_stats', adminStats);
+      console.log(`🎰 Jackpot stake placed: ${ticketRef} by ${dbUser.phone}`);
+
+    } catch (err) {
+      console.error('Jackpot stake error:', err);
+      socket.emit('jackpot_error', { message: 'Failed to place jackpot stake.' });
+    }
+  });
+
+  // ── Admin: Settle Jackpot (broadcast winners) ──────────────────────
+  socket.on('admin_settle_jackpot', async ({ ticketRef, status }) => {
+    if (!socket.user || socket.user.role !== 'admin') return;
+    try {
+      const ticket = await JackpotTicket.findOneAndUpdate({ ticketRef }, { status }, { new: true });
+      if (ticket && status === 'Won' && ticket.userId) {
+        const prize = ticket.stake * 1000; // Example prize multiplier
+        await User.findByIdAndUpdate(ticket.userId, { $inc: { balance: prize, totalWon: prize } });
+        await Transaction.create({ userId: ticket.userId, phone: ticket.phone, type: 'winnings', amount: prize, ref: ticketRef });
+        io.emit('jackpot_winner_announced', { phone: ticket.phone, prize, jackpotName: ticket.jackpotName });
+      }
+    } catch (err) {
+      console.error('Jackpot settle error:', err);
+    }
+  });
+
+  // ── Admin: Get Users List ────────────────────────────────────────────
+  socket.on('admin_get_users', async ({ search = '' } = {}) => {
+    if (!socket.user || socket.user.role !== 'admin') return;
+    try {
+      const query = search ? { phone: { $regex: search, $options: 'i' } } : {};
+      const users = await User.find(query).limit(50).lean();
+      socket.emit('admin_users_list', users.map(u => ({
+        id: u._id, phone: u.phone, name: u.name,
+        balance: u.balance, totalWon: u.totalWon, totalBets: u.totalBets,
+        role: u.role, createdAt: u.createdAt
+      })));
+    } catch (err) {
+      console.error('Admin get users error:', err);
+    }
+  });
+
+  // ── Admin: Update User Balance ──────────────────────────────────────
+  socket.on('admin_update_balance', async ({ userId, amount, reason }) => {
+    if (!socket.user || socket.user.role !== 'admin') return;
+    try {
+      const amt = parseFloat(amount);
+      if (isNaN(amt)) return;
+      const u = await User.findByIdAndUpdate(userId, { $inc: { balance: amt } }, { new: true });
+      if (u) {
+        await Transaction.create({ userId: u._id, phone: u.phone, type: amt > 0 ? 'deposit' : 'withdrawal', amount: Math.abs(amt), ref: `ADMIN-${Date.now()}` });
+        // Notify user if connected
+        io.emit('balance_update_target', { userId: u._id.toString(), balance: u.balance });
+        socket.emit('admin_balance_updated', { phone: u.phone, balance: u.balance, reason });
+      }
+    } catch (err) {
+      console.error('Admin update balance error:', err);
+    }
+  });
+
+  // ── Admin: Get Jackpot Tickets ───────────────────────────────────────
+  socket.on('admin_get_jackpot_tickets', async ({ jackpotKey } = {}) => {
+    if (!socket.user || socket.user.role !== 'admin') return;
+    try {
+      const query = jackpotKey ? { jackpotKey, status: 'Pending' } : { status: 'Pending' };
+      const tickets = await JackpotTicket.find(query).limit(100).lean();
+      socket.emit('admin_jackpot_tickets', tickets);
+    } catch (err) {
+      console.error('Admin get jackpot tickets error:', err);
     }
   });
 
@@ -928,6 +1061,24 @@ app.post('/api/deposit', async (req, res) => {
     if (user) await Transaction.create({ userId: user._id, phone, type: 'deposit', amount: parseFloat(amount), ref: 'DEP-' + Date.now() });
   } catch (err) { console.error('Deposit DB error:', err); }
   res.json({ ok: true, ref: 'DEP-' + Date.now(), amount, method: method || 'M-Pesa', message: 'STK push sent to ' + phone });
+});
+
+// User history: bets + transactions (JWT protected)
+app.get('/api/user/history', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ ok: false, error: 'No token' });
+  const decoded = verifyToken(authHeader.replace('Bearer ', ''));
+  if (!decoded) return res.status(401).json({ ok: false, error: 'Invalid token' });
+  try {
+    const [bets, txns, jackpotTickets] = await Promise.all([
+      Bet.find({ userId: decoded.userId }).sort({ createdAt: -1 }).limit(50).lean(),
+      Transaction.find({ userId: decoded.userId }).sort({ createdAt: -1 }).limit(50).lean(),
+      JackpotTicket.find({ userId: decoded.userId }).sort({ createdAt: -1 }).limit(20).lean(),
+    ]);
+    res.json({ ok: true, bets, transactions: txns, jackpotTickets });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: 'Server error' });
+  }
 });
 
 // Leaderboard — real top winners from DB every 30 seconds, fallback to random if empty

@@ -59,10 +59,24 @@ const withdrawalSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-const User        = mongoose.model('User',        userSchema);
-const Bet         = mongoose.model('Bet',         betSchema);
-const Transaction = mongoose.model('Transaction', transactionSchema);
-const SharedBetslip = mongoose.model('SharedBetslip', sharedBetslipSchema);
-const Withdrawal  = mongoose.model('Withdrawal',  withdrawalSchema);
+const jackpotTicketSchema = new mongoose.Schema({
+  ticketRef:  { type: String, required: true, unique: true },
+  userId:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  phone:      { type: String },
+  jackpotKey: { type: String, required: true }, // 'mega', 'mid', 'liga'
+  jackpotName:{ type: String },
+  stake:      { type: Number, required: true },
+  selections: { type: Array, required: true }, // [{ gameId, type: '1'/'X'/'2' }]
+  games:      { type: Array, required: true },  // snapshot of games
+  status:     { type: String, enum: ['Pending', 'Won', 'Lost'], default: 'Pending' },
+  createdAt:  { type: Date, default: Date.now },
+});
 
-module.exports = { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal };
+const User           = mongoose.model('User',           userSchema);
+const Bet            = mongoose.model('Bet',            betSchema);
+const Transaction    = mongoose.model('Transaction',    transactionSchema);
+const SharedBetslip  = mongoose.model('SharedBetslip',  sharedBetslipSchema);
+const Withdrawal     = mongoose.model('Withdrawal',     withdrawalSchema);
+const JackpotTicket  = mongoose.model('JackpotTicket',  jackpotTicketSchema);
+
+module.exports = { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket };
