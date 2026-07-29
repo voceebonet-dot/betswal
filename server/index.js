@@ -13,6 +13,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket, Kyc } = require('./db');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'betswal-dev-secret-change-in-prod';
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '0000000000';
@@ -1160,72 +1161,62 @@ const sendSMS = async (to, body) => {
   }
 };
 
-app.post('/api/auth/send-otp', async (req, res) => {
-  let { phone } = req.body;
-  if (!phone) return res.status(400).json({ ok: false, error: 'Phone number is required' });
-  
+app.post('/api/auth/register', async (req, res) => {
+  let { phone, password, name, countryId, referredBy } = req.body;
+  if (!phone || !password) return res.status(400).json({ ok: false, error: 'Phone and password are required' });
+
   phone = phone.trim().replace(/\s+/g, '');
   if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
   if (!phone.startsWith('+')) phone = '+' + phone;
-  if (!twilioClient || !process.env.TWILIO_VERIFY_SERVICE_SID) {
-    // Mock for local dev without credentials
-    console.log(`[Mock SMS] Sending OTP to ${phone}`);
-    return res.json({ ok: true, message: 'Mock OTP sent (check console)' });
-  }
 
   try {
-    const verification = await twilioClient.verify.v2.services(process.env.TWILIO_VERIFY_SERVICE_SID)
-      .verifications
-      .create({ to: phone, channel: 'sms' });
-    res.json({ ok: true, status: verification.status });
-  } catch (error) {
-    console.error('Twilio Error (send):', error);
-    res.status(500).json({ ok: false, error: 'Failed to send OTP' });
-  }
-});
+    const existing = await User.findOne({ phone });
+    if (existing) return res.status(400).json({ ok: false, error: 'User already exists' });
 
-app.post('/api/auth/verify-otp', async (req, res) => {
-  let { phone, code, name, countryId, referredBy } = req.body;
-  if (!phone || !code) return res.status(400).json({ ok: false, error: 'Phone and code are required' });
-
-  phone = phone.trim().replace(/\s+/g, '');
-  if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
-  if (!phone.startsWith('+')) phone = '+' + phone;
-
-  const approved = (() => {
-    if (!twilioClient || !process.env.TWILIO_VERIFY_SERVICE_SID) return code === '123456';
-    return null; // handled async below
-  })();
-
-  const issueToken = async () => {
-    // Upsert user in DB
+    const hashedPassword = await bcrypt.hash(password, 10);
     const role = phone === ADMIN_PHONE ? 'admin' : 'user';
     const baseCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const referralCode = `BW-${baseCode}`;
     
-    const user = await User.findOneAndUpdate(
-      { phone },
-      { $setOnInsert: { phone, name: name || '', role, countryId: countryId || 'KE', balance: 0, referralCode, referredBy: referredBy || null } },
-      { upsert: true, new: true }
-    );
+    const user = await User.create({
+      phone,
+      password: hashedPassword,
+      name: name || '',
+      role,
+      countryId: countryId || 'KE',
+      balance: 0,
+      referralCode,
+      referredBy: referredBy || null
+    });
+    
     const token = signToken(user);
-    return res.json({ ok: true, status: 'approved', token, user: { phone: user.phone, name: user.name, role: user.role, balance: user.balance, bonusBalance: user.bonusBalance, countryId: user.countryId, referralCode: user.referralCode } });
-  };
+    res.json({ ok: true, token, user: { phone: user.phone, name: user.name, role: user.role, balance: user.balance, bonusBalance: user.bonusBalance, countryId: user.countryId, referralCode: user.referralCode } });
+  } catch (err) {
+    console.error('Register error:', err);
+    res.status(500).json({ ok: false, error: 'Server error during registration' });
+  }
+});
 
-  if (approved === true) return issueToken();
-  if (approved === false) return res.status(400).json({ ok: false, error: 'Invalid code (mock requires 123456)' });
+app.post('/api/auth/login', async (req, res) => {
+  let { phone, password } = req.body;
+  if (!phone || !password) return res.status(400).json({ ok: false, error: 'Phone and password are required' });
 
-  // Real Twilio check
+  phone = phone.trim().replace(/\s+/g, '');
+  if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
+  if (!phone.startsWith('+')) phone = '+' + phone;
+
   try {
-    const verificationCheck = await twilioClient.verify.v2.services(process.env.TWILIO_VERIFY_SERVICE_SID)
-      .verificationChecks.create({ to: phone, code });
-    if (verificationCheck.status === 'approved') {
-      return issueToken();
-    }
-    res.status(400).json({ ok: false, error: 'Invalid or expired code' });
-  } catch (error) {
-    console.error('Twilio Error (verify):', error);
-    res.status(500).json({ ok: false, error: 'Failed to verify OTP' });
+    const user = await User.findOne({ phone });
+    if (!user) return res.status(400).json({ ok: false, error: 'Invalid phone or password' });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ ok: false, error: 'Invalid phone or password' });
+
+    const token = signToken(user);
+    res.json({ ok: true, token, user: { phone: user.phone, name: user.name, role: user.role, balance: user.balance, bonusBalance: user.bonusBalance, countryId: user.countryId, referralCode: user.referralCode } });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ ok: false, error: 'Server error during login' });
   }
 });
 

@@ -70,27 +70,12 @@ export const UserProvider = ({ children }) => {
     }
   }, []);
 
-  const requestOtp = async (phone) => {
+  const login = async (phone, password) => {
     try {
-      const res = await fetch(`${API_URL}/auth/send-otp`, {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
-      });
-      const data = await res.json();
-      return data;
-    } catch (error) {
-      console.error('Request OTP Error:', error);
-      return { ok: false, error: 'Network error' };
-    }
-  };
-
-  const verifyOtp = async (phone, code, name, countryId, referredBy) => {
-    try {
-      const res = await fetch(`${API_URL}/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code, name, countryId, referredBy }),
+        body: JSON.stringify({ phone, password }),
       });
       const data = await res.json();
       if (data.ok && data.token) {
@@ -99,14 +84,38 @@ export const UserProvider = ({ children }) => {
         setWallet(data.user.balance);
         if (data.user.countryId) setCountryCode(data.user.countryId);
         
-        // Force socket reconnection with new token
         if (socket) {
           socket.disconnect().connect();
         }
       }
       return data;
     } catch (error) {
-      console.error('Verify OTP Error:', error);
+      console.error('Login Error:', error);
+      return { ok: false, error: 'Network error' };
+    }
+  };
+
+  const register = async (phone, password, name, countryId, referredBy) => {
+    try {
+      const res = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password, name, countryId, referredBy }),
+      });
+      const data = await res.json();
+      if (data.ok && data.token) {
+        localStorage.setItem('jwt', data.token);
+        setUser(data.user);
+        setWallet(data.user.balance);
+        if (data.user.countryId) setCountryCode(data.user.countryId);
+        
+        if (socket) {
+          socket.disconnect().connect();
+        }
+      }
+      return data;
+    } catch (error) {
+      console.error('Register Error:', error);
       return { ok: false, error: 'Network error' };
     }
   };
@@ -304,7 +313,7 @@ export const UserProvider = ({ children }) => {
     <UserContext.Provider
       value={{
         country, changeCountry, formatCurrency,
-        user, logout, requestOtp, verifyOtp,
+        user, logout, login, register,
         wallet, deposit, withdraw, deductStake, transactions, creditWinnings,
         myBets, setMyBets, addBetToHistory,
         spendLimit, setSpendLimit, setDailyLimit, setWeeklyLimit,

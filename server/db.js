@@ -14,6 +14,7 @@ const connectDB = async () => {
 
 const userSchema = new mongoose.Schema({
   phone:          { type: String, required: true, unique: true },
+  password:       { type: String, required: true },
   name:           { type: String, default: '' },
   balance:        { type: Number, default: 0 },
   bonusBalance:   { type: Number, default: 0 },        // Free bet wallet
