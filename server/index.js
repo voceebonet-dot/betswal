@@ -1139,10 +1139,13 @@ app.post('/api/withdraw', (req, res) => {
   res.json({ ok: true, ref: 'WDR-' + Date.now(), amount, message: 'Withdrawal of ' + amount + ' initiated to ' + phone });
 });
 
-// Twilio Setup
+// Twilio Setup (Temporarily disabled)
+const twilioClient = null;
+/*
 const twilioClient = (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN)
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
+*/
 
 // SMS helper — gracefully skips if Twilio not configured
 const sendSMS = async (to, body) => {
