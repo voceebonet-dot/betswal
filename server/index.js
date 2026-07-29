@@ -1190,11 +1190,11 @@ app.post('/api/auth/send-otp', async (req, res) => {
     });
     
     const data = await response.json();
-    if (data.pinId) {
+    if (data.pinId && data.smsStatus !== 'MESSAGE_NOT_SENT') {
       res.json({ ok: true, pinId: data.pinId });
     } else {
       console.error('Infobip Send Error:', data);
-      res.status(500).json({ ok: false, error: 'Failed to send OTP' });
+      res.status(500).json({ ok: false, error: data.smsStatus === 'MESSAGE_NOT_SENT' ? 'SMS configuration error on Infobip. Please check your Infobip dashboard.' : 'Failed to send OTP' });
     }
   } catch (err) {
     console.error('Send OTP error:', err);
