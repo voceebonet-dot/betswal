@@ -1063,7 +1063,6 @@ export const ProfilePage = ({ setActiveSection }) => {
             </div>
           )) : <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No jackpot tickets yet.</div>}
         </div>
-        </div>
       )}
 
       {/* STATS TAB */}
