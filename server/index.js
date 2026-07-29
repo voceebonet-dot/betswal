@@ -1158,9 +1158,12 @@ const sendSMS = async (to, body) => {
 };
 
 app.post('/api/auth/send-otp', async (req, res) => {
-  const { phone } = req.body;
+  let { phone } = req.body;
   if (!phone) return res.status(400).json({ ok: false, error: 'Phone number is required' });
   
+  phone = phone.trim().replace(/\s+/g, '');
+  if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
+  if (!phone.startsWith('+')) phone = '+' + phone;
   if (!twilioClient || !process.env.TWILIO_VERIFY_SERVICE_SID) {
     // Mock for local dev without credentials
     console.log(`[Mock SMS] Sending OTP to ${phone}`);
@@ -1179,8 +1182,12 @@ app.post('/api/auth/send-otp', async (req, res) => {
 });
 
 app.post('/api/auth/verify-otp', async (req, res) => {
-  const { phone, code, name, countryId, referredBy } = req.body;
+  let { phone, code, name, countryId, referredBy } = req.body;
   if (!phone || !code) return res.status(400).json({ ok: false, error: 'Phone and code are required' });
+
+  phone = phone.trim().replace(/\s+/g, '');
+  if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
+  if (!phone.startsWith('+')) phone = '+' + phone;
 
   const approved = (() => {
     if (!twilioClient || !process.env.TWILIO_VERIFY_SERVICE_SID) return code === '123456';
