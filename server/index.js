@@ -1,4 +1,8 @@
-require('dotenv').config();
+try {
+  require('dotenv').config();
+} catch (err) {
+  console.log('dotenv optional load skipped:', err.message);
+}
 const express = require('express');
 const http = require('http');
 const twilio = require('twilio');
