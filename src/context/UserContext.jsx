@@ -95,12 +95,26 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  const register = async (phone, password, name, countryId, referredBy) => {
+  const requestOtp = async (phone) => {
+    try {
+      const res = await fetch(`${API_URL}/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      return await res.json();
+    } catch (error) {
+      console.error('Request OTP Error:', error);
+      return { ok: false, error: 'Network error' };
+    }
+  };
+
+  const register = async (phone, password, name, countryId, referredBy, pinId, otpCode) => {
     try {
       const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password, name, countryId, referredBy }),
+        body: JSON.stringify({ phone, password, name, countryId, referredBy, pinId, otpCode }),
       });
       const data = await res.json();
       if (data.ok && data.token) {
@@ -313,7 +327,7 @@ export const UserProvider = ({ children }) => {
     <UserContext.Provider
       value={{
         country, changeCountry, formatCurrency,
-        user, logout, login, register,
+        user, logout, login, register, requestOtp,
         wallet, deposit, withdraw, deductStake, transactions, creditWinnings,
         myBets, setMyBets, addBetToHistory,
         spendLimit, setSpendLimit, setDailyLimit, setWeeklyLimit,

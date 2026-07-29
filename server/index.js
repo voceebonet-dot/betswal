@@ -1161,9 +1161,52 @@ const sendSMS = async (to, body) => {
   }
 };
 
+app.post('/api/auth/send-otp', async (req, res) => {
+  let { phone } = req.body;
+  if (!phone) return res.status(400).json({ ok: false, error: 'Phone number is required' });
+
+  phone = phone.trim().replace(/\s+/g, '');
+  if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
+  if (!phone.startsWith('+')) phone = '+' + phone;
+  let infobipPhone = phone.replace('+', '');
+
+  try {
+    const existing = await User.findOne({ phone });
+    if (existing) return res.status(400).json({ ok: false, error: 'User already exists' });
+
+    const response = await fetch('https://l24nwj.api.infobip.com/2fa/2/pin', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'App 74b1997854051fea75fad51b36157edb-1b67fa54-aafd-4006-bfa1-00162551b18e',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        applicationId: '98BDE587F3BB376AAFD70B1234B8D82B',
+        messageId: 'CE24A3FB1F130E4ADD7B321DE5A5F74F',
+        from: 'Betswal',
+        to: infobipPhone
+      })
+    });
+    
+    const data = await response.json();
+    if (data.pinId) {
+      res.json({ ok: true, pinId: data.pinId });
+    } else {
+      console.error('Infobip Send Error:', data);
+      res.status(500).json({ ok: false, error: 'Failed to send OTP' });
+    }
+  } catch (err) {
+    console.error('Send OTP error:', err);
+    res.status(500).json({ ok: false, error: 'Server error during send-otp' });
+  }
+});
+
 app.post('/api/auth/register', async (req, res) => {
-  let { phone, password, name, countryId, referredBy } = req.body;
-  if (!phone || !password) return res.status(400).json({ ok: false, error: 'Phone and password are required' });
+  let { phone, password, name, countryId, referredBy, pinId, otpCode } = req.body;
+  if (!phone || !password || !pinId || !otpCode) {
+    return res.status(400).json({ ok: false, error: 'Phone, password, and OTP code are required' });
+  }
 
   phone = phone.trim().replace(/\s+/g, '');
   if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
@@ -1172,6 +1215,21 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const existing = await User.findOne({ phone });
     if (existing) return res.status(400).json({ ok: false, error: 'User already exists' });
+
+    const response = await fetch(`https://l24nwj.api.infobip.com/2fa/2/pin/${pinId}/verify`, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'App 74b1997854051fea75fad51b36157edb-1b67fa54-aafd-4006-bfa1-00162551b18e',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ pin: otpCode })
+    });
+    
+    const data = await response.json();
+    if (!data.verified) {
+      return res.status(400).json({ ok: false, error: 'Invalid or expired OTP code' });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const role = phone === ADMIN_PHONE ? 'admin' : 'user';
