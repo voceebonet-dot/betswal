@@ -28,12 +28,20 @@ const SidebarLeft = ({ activeSport, setActiveSport, setActiveSection }) => {
   ];
 
   return (
-    <div className="glass-panel custom-scrollbar" style={{ padding: '0.5rem', borderRadius: '12px', position: 'sticky', top: '80px', height: 'calc(100vh - 100px)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+    <div className="sidebar-left-container glass-panel custom-scrollbar">
       {/* Wallet / Deposit card */}
       {user ? (
         <div style={{ backgroundColor: 'rgba(134,196,57,0.08)', border: '1px solid rgba(134,196,57,0.2)', borderRadius: '10px', padding: '10px 12px', marginBottom: '6px' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>💰 Wallet Balance</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#86c439', marginBottom: '8px' }}>{formatCurrency(wallet)}</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>💰 Wallet Balance</div>
+          <div style={{ fontSize: '18px', fontWeight: 800, color: '#86c439', marginBottom: user.bonusBalance > 0 ? '4px' : '8px' }}>{formatCurrency(wallet)}</div>
+          
+          {user.bonusBalance > 0 && (
+            <>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>🎁 Bonus Balance</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#fecd08', marginBottom: '8px' }}>{formatCurrency(user.bonusBalance)}</div>
+            </>
+          )}
+
           <div style={{ display: 'flex', gap: '6px' }}>
             <button onClick={() => setActiveSection('Deposit')} className="btn btn-primary" style={{ flex: 1, padding: '6px', fontSize: '12px', fontWeight: 700 }}>+ Deposit</button>
             <button onClick={() => setActiveSection('Withdraw')} className="btn" style={{ flex: 1, padding: '6px', fontSize: '12px', backgroundColor: 'var(--bg-btn)', color: 'var(--text-main)' }}>Withdraw</button>

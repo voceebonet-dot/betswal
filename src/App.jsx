@@ -114,7 +114,7 @@ function AppInner() {
         <div className="app-layout">
           <SidebarLeft activeSport={activeSport} setActiveSport={setActiveSport} setActiveSection={setActiveSection} />
           <MainContent activeSport={activeSport} bets={bets} toggleBet={toggleBet} activeSection={activeSection} setActiveSection={setActiveSection} setActiveJackpot={setActiveJackpot} />
-          <div style={{ position: 'sticky', top: '80px', alignSelf: 'start', height: 'max-content' }}>
+          <div className="betslip-right-container">
             <BetslipRight bets={bets} clearBets={clearBets} removeBet={removeBet} />
           </div>
         </div>

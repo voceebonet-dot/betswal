@@ -368,6 +368,40 @@ const SportsContent = ({ activeSport, bets, toggleBet, activeSection, setActiveS
         })}
       </div>
 
+      {/* Mobile Horizontal Sports Bar */}
+      <div className="mobile-sports-bar" style={{ gap: '8px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '1rem', scrollbarWidth: 'none' }}>
+        {[
+          { name: 'Soccer', icon: '⚽' },
+          { name: 'Basketball', icon: '🏀' },
+          { name: 'Tennis', icon: '🎾' },
+          { name: 'Table Tennis', icon: '🏓' },
+          { name: 'Boxing', icon: '🥊' },
+          { name: 'Rugby', icon: '🏉' },
+          { name: 'eSoccer', icon: '🎮' },
+          { name: 'Cricket', icon: '🏏' },
+          { name: 'Baseball', icon: '⚾' },
+          { name: 'MMA', icon: '🥋' },
+        ].map(sport => {
+          const isActive = activeSport === sport.name;
+          return (
+            <button
+              key={sport.name}
+              onClick={() => setActiveSport(sport.name)}
+              className="btn"
+              style={{
+                backgroundColor: isActive ? 'rgba(134,196,57,0.2)' : 'rgba(255,255,255,0.05)',
+                color: isActive ? 'var(--primary)' : 'var(--text-main)',
+                border: isActive ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.1)',
+                whiteSpace: 'nowrap', fontSize: '12px', padding: '6px 12px', borderRadius: '20px',
+                display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flexShrink: 0
+              }}
+            >
+              <span>{sport.icon}</span> {sport.name}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Filters */}
       {!noFilters.includes(activeSubNav) && (
         <div className="flex items-center justify-between" style={{ marginBottom: '1rem' }}>
