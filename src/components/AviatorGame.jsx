@@ -482,6 +482,7 @@ const CountdownRing = ({ countdown, max = 10 }) => {
 
 // ─── Bet Slot (Manual / Auto tabs) ───────────────────────────────────────────
 const BetSlot = ({ socket, phase, multiplier, label, country }) => {
+  const { user } = useUser();
   const [mode,        setMode]        = useState('manual');
   const [stake,       setStake]       = useState(Math.round(50 * country.rate));
   const [autoCashout, setAutoCashout] = useState('2.00');
@@ -518,6 +519,7 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
   }, [socket]);
 
   const handleBet = () => {
+    if (!user) { flash('⚠️ Please login to place a bet.', '#dc3545'); return; }
     if (!socket || phase !== 'betting') return;
     const ac = mode === 'auto' && autoCashout ? parseFloat(autoCashout) : null;
     socket.emit('aviator_place_bet', { stake: parseFloat(stake), autoCashout: ac });

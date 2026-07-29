@@ -35,7 +35,7 @@ const generateMockGames = (count) => {
 
 const JackpotModal = ({ jackpotKey, onClose }) => {
   const { jackpot } = useSocket();
-  const { formatCurrency } = useUser();
+  const { formatCurrency, user } = useUser();
   const [games, setGames] = useState([]);
   const [selections, setSelections] = useState({}); // gameId -> '1', 'X', or '2'
   
@@ -173,6 +173,10 @@ const JackpotModal = ({ jackpotKey, onClose }) => {
               border: 'none'
             }}
             onClick={() => {
+              if (!user) {
+                alert('Please register or log in to place a Jackpot stake.');
+                return;
+              }
               alert(`Successfully submitted your ${currentJackpot.name} slip!`);
               onClose();
             }}
