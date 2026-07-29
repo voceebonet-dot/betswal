@@ -44,15 +44,21 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
     socket.once('betslip_saved', ({ code }) => setShareCode(code));
   };
 
+  const [useBonus, setUseBonus] = useState(false);
+
   const handlePlaceBet = () => {
     if (!user) { flash('⚠️ Please login to place a bet.', 'error'); return; }
     if (!bets.length || !socket) return;
     const stakeNum = parseFloat(stake);
     if (isNaN(stakeNum) || stakeNum <= 0) { flash('❌ Enter a valid stake.', 'error'); return; }
-    if (stakeNum > wallet) { flash(`❌ Insufficient balance. Wallet: ${country.symbol} ${wallet}`, 'error'); return; }
-    const res = deductStake(stakeNum);
-    if (!res.ok) { flash(`❌ ${res.error}`, 'error'); return; }
-    socket.emit('place_bet', { bets, stake: stakeNum });
+    if (useBonus) {
+      if (stakeNum > (user.bonusBalance || 0)) { flash(`❌ Insufficient bonus balance. Available: ${country.symbol} ${user.bonusBalance || 0}`, 'error'); return; }
+    } else {
+      if (stakeNum > wallet) { flash(`❌ Insufficient balance. Wallet: ${country.symbol} ${wallet}`, 'error'); return; }
+      const res = deductStake(stakeNum);
+      if (!res.ok) { flash(`❌ ${res.error}`, 'error'); return; }
+    }
+    socket.emit('place_bet', { bets, stake: stakeNum, useBonus });
     socket.once('bet_confirmed', ({ ticketRef, totalOdds: to, possibleWin: pw }) => {
       addBetToHistory(ticketRef, bets, to, stake, pw);
       flash(`🏟️ Bet placed! Ref: ${ticketRef} | Win: ${country.symbol} ${pw}`, 'success');
@@ -223,6 +229,13 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
                     <span style={{ fontWeight: 900, fontSize: '20px', color: '#86c439', textShadow: '0 0 12px rgba(134,196,57,0.5)' }}>{country.symbol} {possibleWin}</span>
                   </div>
                 </div>
+
+                {user && user.bonusBalance > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
+                    <input type="checkbox" id="useBonus" checked={useBonus} onChange={e => setUseBonus(e.target.checked)} />
+                    <label htmlFor="useBonus" style={{ fontSize: '13px', cursor: 'pointer', color: '#fff' }}>Use Bonus Balance (<span style={{ color: '#fecd08', fontWeight: 'bold' }}>{country.symbol} {user.bonusBalance}</span>)</label>
+                  </div>
+                )}
 
                 {/* CTA buttons */}
                 <button

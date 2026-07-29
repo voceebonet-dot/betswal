@@ -13,32 +13,41 @@ const connectDB = async () => {
 // ── Schemas ────────────────────────────────────────────────────────────────
 
 const userSchema = new mongoose.Schema({
-  phone:      { type: String, required: true, unique: true },
-  name:       { type: String, default: '' },
-  balance:    { type: Number, default: 0 },
-  totalWon:   { type: Number, default: 0 },
-  totalBets:  { type: Number, default: 0 },
-  role:       { type: String, enum: ['user', 'admin'], default: 'user' },
-  countryId:  { type: String, default: 'KE' },
-  createdAt:  { type: Date, default: Date.now },
+  phone:          { type: String, required: true, unique: true },
+  name:           { type: String, default: '' },
+  balance:        { type: Number, default: 0 },
+  bonusBalance:   { type: Number, default: 0 },        // Free bet wallet
+  totalWon:       { type: Number, default: 0 },
+  totalBets:      { type: Number, default: 0 },
+  totalDeposited: { type: Number, default: 0 },        // For referral first-deposit trigger
+  role:           { type: String, enum: ['user', 'admin'], default: 'user' },
+  countryId:      { type: String, default: 'KE' },
+  referralCode:   { type: String, unique: true, sparse: true }, // User's own referral code
+  referredBy:     { type: String, default: null },     // Referral code used at signup
+  referralCount:  { type: Number, default: 0 },        // How many people they referred
+  referralEarned: { type: Number, default: 0 },        // Total bonus earned from referrals
+  kycStatus:      { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
+  createdAt:      { type: Date, default: Date.now },
 });
 
 const betSchema = new mongoose.Schema({
-  userId:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  phone:      { type: String },
-  ticketRef:  { type: String, required: true, unique: true },
-  stake:      { type: Number, required: true },
-  totalOdds:  { type: Number, required: true },
-  possibleWin:{ type: Number, required: true },
-  bets:       { type: Array, required: true },
-  status:     { type: String, enum: ['Pending', 'Won', 'Lost', 'CashedOut'], default: 'Pending' },
-  createdAt:  { type: Date, default: Date.now },
+  userId:           { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  phone:            { type: String },
+  ticketRef:        { type: String, required: true, unique: true },
+  stake:            { type: Number, required: true },
+  totalOdds:        { type: Number, required: true },
+  possibleWin:      { type: Number, required: true },
+  bets:             { type: Array, required: true },
+  status:           { type: String, enum: ['Pending', 'Won', 'Lost', 'CashedOut'], default: 'Pending' },
+  isBonus:          { type: Boolean, default: false },  // Was placed with bonus balance
+  cashedOutAmount:  { type: Number, default: null },    // Payout if cashed out
+  createdAt:        { type: Date, default: Date.now },
 });
 
 const transactionSchema = new mongoose.Schema({
   userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   phone:     { type: String },
-  type:      { type: String, enum: ['deposit', 'withdrawal', 'bet_stake', 'winnings'], required: true },
+  type:      { type: String, enum: ['deposit', 'withdrawal', 'bet_stake', 'winnings', 'bonus', 'cashout', 'referral_bonus'], required: true },
   amount:    { type: Number, required: true },
   ref:       { type: String },
   createdAt: { type: Date, default: Date.now },
@@ -60,16 +69,28 @@ const withdrawalSchema = new mongoose.Schema({
 });
 
 const jackpotTicketSchema = new mongoose.Schema({
-  ticketRef:  { type: String, required: true, unique: true },
-  userId:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  phone:      { type: String },
-  jackpotKey: { type: String, required: true }, // 'mega', 'mid', 'liga'
-  jackpotName:{ type: String },
-  stake:      { type: Number, required: true },
-  selections: { type: Array, required: true }, // [{ gameId, type: '1'/'X'/'2' }]
-  games:      { type: Array, required: true },  // snapshot of games
-  status:     { type: String, enum: ['Pending', 'Won', 'Lost'], default: 'Pending' },
-  createdAt:  { type: Date, default: Date.now },
+  ticketRef:   { type: String, required: true, unique: true },
+  userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  phone:       { type: String },
+  jackpotKey:  { type: String, required: true },
+  jackpotName: { type: String },
+  stake:       { type: Number, required: true },
+  selections:  { type: Array, required: true },
+  games:       { type: Array, required: true },
+  status:      { type: String, enum: ['Pending', 'Won', 'Lost'], default: 'Pending' },
+  createdAt:   { type: Date, default: Date.now },
+});
+
+const kycSchema = new mongoose.Schema({
+  userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', unique: true },
+  phone:       { type: String },
+  idType:      { type: String, enum: ['national_id', 'passport', 'driving_license'], required: true },
+  idNumber:    { type: String, required: true },
+  fullName:    { type: String, required: true },
+  status:      { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
+  reviewNote:  { type: String, default: '' },
+  submittedAt: { type: Date, default: Date.now },
+  reviewedAt:  { type: Date },
 });
 
 const User           = mongoose.model('User',           userSchema);
@@ -78,5 +99,6 @@ const Transaction    = mongoose.model('Transaction',    transactionSchema);
 const SharedBetslip  = mongoose.model('SharedBetslip',  sharedBetslipSchema);
 const Withdrawal     = mongoose.model('Withdrawal',     withdrawalSchema);
 const JackpotTicket  = mongoose.model('JackpotTicket',  jackpotTicketSchema);
+const Kyc            = mongoose.model('Kyc',            kycSchema);
 
-module.exports = { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket };
+module.exports = { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket, Kyc };

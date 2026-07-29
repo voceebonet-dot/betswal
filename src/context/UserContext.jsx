@@ -85,12 +85,12 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  const verifyOtp = async (phone, code, name, countryId) => {
+  const verifyOtp = async (phone, code, name, countryId, referredBy) => {
     try {
       const res = await fetch(`${API_URL}/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code, name, countryId }),
+        body: JSON.stringify({ phone, code, name, countryId, referredBy }),
       });
       const data = await res.json();
       if (data.ok && data.token) {

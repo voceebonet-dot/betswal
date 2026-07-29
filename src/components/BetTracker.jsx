@@ -1,12 +1,35 @@
 import React, { useState } from 'react';
 import { useUser } from '../context/UserContext';
+import { useSocket } from '../context/SocketContext';
 
 const BetTracker = ({ onOpenMyBets }) => {
   const { myBets } = useUser();
+  const { socket } = useSocket() || {};
   const [open, setOpen] = useState(false);
+  const [loadingCashout, setLoadingCashout] = useState(null);
 
   const pending = myBets.filter(b => b.status === 'Pending');
   const recentSettled = myBets.filter(b => b.status !== 'Pending').slice(0, 3);
+
+  const handleCashout = (ticketRef, possibleWin) => {
+    if (!socket || loadingCashout) return;
+    if (window.confirm(`Cashout this bet for approx KSh ${(possibleWin * 0.70).toFixed(2)}?`)) {
+      setLoadingCashout(ticketRef);
+      socket.emit('cashout_bet', { ticketRef });
+      setTimeout(() => setLoadingCashout(null), 3000); // Reset if no response
+    }
+  };
+
+  React.useEffect(() => {
+    if (!socket) return;
+    const onCashout = () => setLoadingCashout(null);
+    socket.on('cashout_confirmed', onCashout);
+    socket.on('cashout_error', onCashout);
+    return () => {
+      socket.off('cashout_confirmed', onCashout);
+      socket.off('cashout_error', onCashout);
+    };
+  }, [socket]);
 
   if (myBets.length === 0) return null;
 
@@ -30,19 +53,32 @@ const BetTracker = ({ onOpenMyBets }) => {
           {/* Active bets */}
           {pending.length > 0 && (
             <div style={{ padding: '8px' }}>
-              {pending.slice(0, 4).map((bet, i) => (
-                <div key={i} style={{ backgroundColor: 'var(--bg-btn)', borderRadius: '8px', padding: '10px 12px', marginBottom: '6px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{bet.ticketRef}</span>
-                    <span style={{ fontSize: '11px', backgroundColor: 'rgba(255,183,3,0.15)', color: '#ffb703', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>Pending</span>
+              {pending.slice(0, 4).map((bet, i) => {
+                const cashoutVal = (bet.possibleWin * 0.70).toFixed(2);
+                return (
+                  <div key={i} style={{ backgroundColor: 'var(--bg-btn)', borderRadius: '8px', padding: '10px 12px', marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{bet.ticketRef}</span>
+                      <span style={{ fontSize: '11px', backgroundColor: 'rgba(255,183,3,0.15)', color: '#ffb703', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>Pending</span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#fff' }}>{bet.bets.length} selection{bet.bets.length > 1 ? 's' : ''} · Odds: <strong style={{ color: 'var(--primary)' }}>{bet.totalOdds}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Stake: {bet.stake}</div>
+                        <div style={{ fontSize: '11px', color: '#fecd08', fontWeight: 600 }}>Win: {bet.possibleWin}</div>
+                      </div>
+                      <button 
+                        className="btn" 
+                        style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#3498db', color: '#fff', fontWeight: 600 }}
+                        onClick={() => handleCashout(bet.ticketRef, bet.possibleWin)}
+                        disabled={loadingCashout === bet.ticketRef}
+                      >
+                        {loadingCashout === bet.ticketRef ? '...' : `Cashout KSh ${cashoutVal}`}
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#fff' }}>{bet.bets.length} selection{bet.bets.length > 1 ? 's' : ''} · Odds: <strong style={{ color: 'var(--primary)' }}>{bet.totalOdds}</strong></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Stake: {bet.stake}</span>
-                    <span style={{ fontSize: '11px', color: '#fecd08', fontWeight: 600 }}>Win: {bet.possibleWin}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

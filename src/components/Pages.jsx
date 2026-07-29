@@ -628,6 +628,7 @@ export const AuthPage = ({ mode = 'login', setActiveSection }) => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [referredBy, setReferredBy] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [step, setStep] = useState('details'); // 'details' or 'otp'
   const [error, setError] = useState('');
@@ -652,7 +653,7 @@ export const AuthPage = ({ mode = 'login', setActiveSection }) => {
       if (!otpCode.trim()) { setError('OTP code is required.'); return; }
       
       setLoading(true);
-      const res = await verifyOtp(phone.trim(), otpCode.trim(), !isLogin ? name.trim() : '', country.id);
+      const res = await verifyOtp(phone.trim(), otpCode.trim(), !isLogin ? name.trim() : '', country.id, referredBy.trim());
       
       if (res && res.ok) {
         setLoading(false);
@@ -711,6 +712,15 @@ export const AuthPage = ({ mode = 'login', setActiveSection }) => {
               <input type="password" className="glow-focus auth-input" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
             </div>
           </div>
+          {!isLogin && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Referral Code (Optional)</label>
+              <div className="auth-input-container">
+                <i>🎁</i>
+                <input type="text" className="glow-focus auth-input" placeholder="e.g. BW-ABC123" value={referredBy} onChange={e => setReferredBy(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', textTransform: 'uppercase' }} />
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <div style={{ marginBottom: '1.5rem' }}>
@@ -951,6 +961,11 @@ export const ProfilePage = ({ setActiveSection }) => {
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', marginBottom: '4px' }}>{user.name || 'BetsWal User'}</div>
           <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{user.phone}</div>
+          {user.referralCode && (
+            <div style={{ color: 'var(--primary)', fontSize: '12px', marginTop: '6px', cursor: 'pointer' }} onClick={() => { navigator.clipboard.writeText(user.referralCode); alert('Referral code copied!'); }}>
+              Referral Code: <strong style={{ letterSpacing: '1px' }}>{user.referralCode}</strong> 📋
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
           {[
@@ -967,8 +982,8 @@ export const ProfilePage = ({ setActiveSection }) => {
       </div>
 
       {/* Tab Nav */}
-      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '1.5rem' }}>
-        {['Bets', 'Transactions', 'Jackpot Tickets'].map(t => (
+      <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '1.5rem', overflowX: 'auto', whiteSpace: 'nowrap' }}>
+        {['Bets', 'Transactions', 'Jackpot Tickets', 'Stats'].map(t => (
           <button key={t} style={tabStyle(t)} onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
@@ -1047,6 +1062,32 @@ export const ProfilePage = ({ setActiveSection }) => {
               </div>
             </div>
           )) : <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No jackpot tickets yet.</div>}
+        </div>
+        </div>
+      )}
+
+      {/* STATS TAB */}
+      {!loading && !error && tab === 'Stats' && (
+        <div className='glass-panel' style={{ padding: '1.5rem', borderRadius: '12px' }}>
+          <h3 style={{ marginBottom: '1rem', color: '#fff' }}>Dashboard Statistics</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '10px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Won</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#86c439' }}>{formatCurrency(user.totalWon || 0)}</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '10px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Deposited</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#fecd08' }}>{formatCurrency(user.totalDeposited || 0)}</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '10px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Bets</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff' }}>{user.totalBets || 0}</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '10px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Referrals Made</div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)' }}>{user.referralCount || 0}</div>
+            </div>
+          </div>
         </div>
       )}
     </div>
