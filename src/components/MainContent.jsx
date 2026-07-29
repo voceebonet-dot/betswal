@@ -8,6 +8,7 @@ import {
   ProfilePage,
 } from './Pages';
 import AdminDashboard from './AdminDashboard';
+import { BetBuilder } from './BetBuilder';
 
 import OddsBtn from './OddsBtn';
 
@@ -158,7 +159,12 @@ const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
           </div>
 
           <div style={{ width: '100px', textAlign: 'right', fontSize: '12px', marginLeft: '1rem' }}>
-            <div style={{ color: 'var(--primary)', marginBottom: '4px', cursor: 'pointer' }}>+10 Markets</div>
+            <div 
+              style={{ color: 'var(--primary)', marginBottom: '4px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}
+              onClick={() => setActiveSection(`BetBuilder_${match.id}`)}
+            >
+              🛠️ Bet Builder
+            </div>
             <div style={{ color: 'var(--text-muted)' }}>{match.date}</div>
           </div>
         </div>
@@ -426,6 +432,10 @@ const MainContent = ({ activeSport, bets, toggleBet, activeSection, setActiveSec
     case 'Profile':      return <ProfilePage setActiveSection={setActiveSection} />;
     case 'Admin':        return <AdminDashboard />;
     default:
+      if (activeSection.startsWith('BetBuilder_')) {
+        const matchId = activeSection.replace('BetBuilder_', '');
+        return <BetBuilder matchId={matchId} bets={bets} toggleBet={toggleBet} setActiveSection={setActiveSection} />;
+      }
       // Sports layout sections all share the SportsContent sub-router
       return (
         <SportsContent

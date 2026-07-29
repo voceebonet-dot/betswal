@@ -7,7 +7,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
-const { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket } = require('./db');
+const { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket, Kyc } = require('./db');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'betswal-dev-secret-change-in-prod';
@@ -217,6 +217,9 @@ let jackpot = {
 
 // 4. Shared betslip store (in-memory, keyed by code)
 const sharedBetslips = {};
+
+// 4.5. Chat history store
+const chatMessages = [];
 
 // 5. Live match count (used in navbar)
 let liveCount = liveMatches.length;
@@ -441,10 +444,35 @@ io.on('connection', (socket) => {
 
   // Send balance to authenticated user
   if (socket.user) {
+    socket.join('user_' + socket.user.userId);
     User.findById(socket.user.userId).then(u => {
       if (u) socket.emit('balance_update', { balance: u.balance });
     }).catch(() => {});
   }
+
+  // ── Chat System ──────────────────────────────────────────────
+  socket.on('chat_history', () => {
+    if (socket.user) {
+      const userMsgs = chatMessages.filter(m => m.userId === socket.user.userId);
+      socket.emit('chat_history', userMsgs);
+    }
+  });
+
+  socket.on('chat_message', (text) => {
+    if (!socket.user || !text.trim()) return;
+    const msg = { sender: socket.user.userId, senderName: socket.user.name || 'User', text: text.trim(), time: new Date(), userId: socket.user.userId };
+    chatMessages.push(msg);
+    socket.emit('chat_message', msg);
+    io.to('admins').emit('admin_chat_message', msg);
+  });
+
+  socket.on('admin_chat_reply', ({ userId, text }) => {
+    if (!socket.user || socket.user.role !== 'admin' || !text.trim()) return;
+    const msg = { sender: 'admin', text: text.trim(), time: new Date(), userId };
+    chatMessages.push(msg);
+    io.to('user_' + userId).emit('chat_message', msg);
+    io.to('admins').emit('admin_chat_message', msg); // So other admins see it
+  });
 
   adminStats.activeUsers = io.engine.clientsCount;
 
@@ -455,6 +483,7 @@ io.on('connection', (socket) => {
     }
     socket.join('admins');
     socket.emit('admin_stats', adminStats);
+    socket.emit('admin_chat_history', chatMessages);
   });
 
   // ── Admin Actions ────────────────────────────────────────────
@@ -466,11 +495,16 @@ io.on('connection', (socket) => {
     // Persist to MongoDB and credit winnings if Won
     try {
       const dbBet = await Bet.findOneAndUpdate({ ticketRef }, { status }, { new: true });
-      if (dbBet && status === 'Won' && dbBet.userId) {
-        await User.findByIdAndUpdate(dbBet.userId, {
-          $inc: { balance: dbBet.possibleWin, totalWon: dbBet.possibleWin }
-        });
-        await Transaction.create({ userId: dbBet.userId, phone: dbBet.phone, type: 'winnings', amount: dbBet.possibleWin, ref: ticketRef });
+      if (dbBet && dbBet.userId) {
+        if (status === 'Won') {
+          await User.findByIdAndUpdate(dbBet.userId, {
+            $inc: { balance: dbBet.possibleWin, totalWon: dbBet.possibleWin }
+          });
+          await Transaction.create({ userId: dbBet.userId, phone: dbBet.phone, type: 'winnings', amount: dbBet.possibleWin, ref: ticketRef });
+          sendSMS(dbBet.phone, `🏆 Congratulations! Your bet ${ticketRef} WON! KSh ${dbBet.possibleWin} has been credited to your account.`);
+        } else if (status === 'Lost') {
+          sendSMS(dbBet.phone, `❌ Your bet ${ticketRef} did not win this time. Better luck next time on BetsWal!`);
+        }
       }
     } catch (err) {
       console.error('DB Error settling bet:', err);
@@ -698,7 +732,7 @@ io.on('connection', (socket) => {
   });
 
   // ── Place bet ────────────────────────────────────────────────
-  socket.on('place_bet', async ({ bets, stake }) => {
+  socket.on('place_bet', async ({ bets, stake, useBonus }) => {
     if (!checkRateLimit(socket.id, 'place_bet', 3, 5000)) {
       return socket.emit('bet_error', { message: 'Too many bets placed quickly. Please wait.' });
     }
@@ -724,13 +758,21 @@ io.on('connection', (socket) => {
     if (socket.user) {
       try {
         const dbUser = await User.findById(socket.user.userId);
-        if (!dbUser || dbUser.balance < stakeNum) {
-          return socket.emit('bet_error', { message: 'Insufficient balance.' });
+        if (useBonus) {
+          if (!dbUser || dbUser.bonusBalance < stakeNum) {
+            return socket.emit('bet_error', { message: 'Insufficient bonus balance.' });
+          }
+          await User.findByIdAndUpdate(socket.user.userId, { $inc: { bonusBalance: -stakeNum, totalBets: 1 } });
+          await Transaction.create({ userId: dbUser._id, phone: dbUser.phone, type: 'bet_stake_bonus', amount: stakeNum, ref: ticketRef });
+          socket.emit('bonus_update', { bonusBalance: dbUser.bonusBalance - stakeNum });
+        } else {
+          if (!dbUser || dbUser.balance < stakeNum) {
+            return socket.emit('bet_error', { message: 'Insufficient balance.' });
+          }
+          await User.findByIdAndUpdate(socket.user.userId, { $inc: { balance: -stakeNum, totalBets: 1 } });
+          await Transaction.create({ userId: dbUser._id, phone: dbUser.phone, type: 'bet_stake', amount: stakeNum, ref: ticketRef });
+          socket.emit('balance_update', { balance: dbUser.balance - stakeNum });
         }
-        await User.findByIdAndUpdate(socket.user.userId, { $inc: { balance: -stakeNum, totalBets: 1 } });
-        await Transaction.create({ userId: dbUser._id, phone: dbUser.phone, type: 'bet_stake', amount: stakeNum, ref: ticketRef });
-        // Notify client of updated balance
-        socket.emit('balance_update', { balance: dbUser.balance - stakeNum });
       } catch (err) {
         console.error('DB Error deducting balance:', err);
       }
@@ -763,6 +805,11 @@ io.on('connection', (socket) => {
     jackpotPool.current = Math.min(jackpotPool.target, jackpotPool.current + stakeNum * 0.05);
     io.emit('jackpot_pool_update', jackpotPool);
     io.to('admins').emit('admin_stats', adminStats);
+
+    // SMS confirmation
+    if (socket.user?.phone) {
+      sendSMS(socket.user.phone, `🏟️ Bet placed! Ticket: ${ticketRef} | Stake: KSh ${stakeNum} | Win: KSh ${possibleWin}`);
+    }
     
     console.log(`🎟️  Bet placed ${ticketRef} | Stake: ${stakeNum} | Win: ${possibleWin}`);
   });
@@ -771,6 +818,121 @@ io.on('connection', (socket) => {
     delete aviator.players[socket.id];
     adminStats.activeUsers = Math.max(0, adminStats.activeUsers - 1);
     console.log(`❌ Client disconnected: ${socket.id}`);
+  });
+
+  // ── Bet Cashout ────────────────────────────────────────────────
+  socket.on('cashout_bet', async ({ ticketRef }) => {
+    if (!socket.user) return socket.emit('cashout_error', { message: 'Not authenticated.' });
+    try {
+      const bet = await Bet.findOne({ ticketRef, userId: socket.user.userId, status: 'Pending' });
+      if (!bet) return socket.emit('cashout_error', { message: 'Bet not found or already settled.' });
+
+      // Cashout value = 70% of possible win
+      const cashoutValue = parseFloat((bet.possibleWin * 0.70).toFixed(2));
+      await Bet.findByIdAndUpdate(bet._id, { status: 'CashedOut', cashedOutAmount: cashoutValue });
+      await User.findByIdAndUpdate(socket.user.userId, { $inc: { balance: cashoutValue, totalWon: cashoutValue } });
+      await Transaction.create({ userId: socket.user.userId, phone: socket.user.phone, type: 'cashout', amount: cashoutValue, ref: ticketRef });
+
+      const updatedUser = await User.findById(socket.user.userId).lean();
+      socket.emit('cashout_confirmed', { ticketRef, cashoutValue, newBalance: updatedUser.balance });
+      socket.emit('balance_update', { balance: updatedUser.balance });
+
+      // Update admin log
+      const adminBet = adminStats.betsLog.find(b => b.ticketRef === ticketRef);
+      if (adminBet) adminBet.status = 'CashedOut';
+      io.to('admins').emit('admin_stats', adminStats);
+
+      sendSMS(socket.user.phone, `💰 Cashout successful! KSh ${cashoutValue} credited for ticket ${ticketRef}.`);
+      console.log(`💰 Cashout: ${ticketRef} → KSh ${cashoutValue}`);
+    } catch (err) {
+      console.error('Cashout error:', err);
+      socket.emit('cashout_error', { message: 'Cashout failed. Please try again.' });
+    }
+  });
+
+  // ── Admin: Grant Bonus Balance ──────────────────────────────────────
+  socket.on('admin_grant_bonus', async ({ userId, amount, reason }) => {
+    if (!socket.user || socket.user.role !== 'admin') return;
+    try {
+      const amt = parseFloat(amount);
+      if (isNaN(amt) || amt <= 0) return;
+      const u = await User.findByIdAndUpdate(userId, { $inc: { bonusBalance: amt } }, { new: true });
+      if (u) {
+        await Transaction.create({ userId: u._id, phone: u.phone, type: 'bonus', amount: amt, ref: `BONUS-${Date.now()}` });
+        io.emit('bonus_update_target', { userId: u._id.toString(), bonusBalance: u.bonusBalance });
+        socket.emit('admin_bonus_granted', { phone: u.phone, bonusBalance: u.bonusBalance, reason });
+        sendSMS(u.phone, `🎁 You've received a KSh ${amt} free bet bonus on BetsWal! ${reason ? `(${reason})` : ''} Happy betting!`);
+      }
+    } catch (err) { console.error('Grant bonus error:', err); }
+  });
+
+  // ── Live Chat ───────────────────────────────────────────────────────
+  socket.on('chat_message', ({ message }) => {
+    if (!socket.user) return;
+    if (!checkRateLimit(socket.id, 'chat', 5, 5000)) return;
+    const msg = {
+      from: socket.user.phone,
+      userId: socket.user.userId,
+      message: String(message).substring(0, 500),
+      time: new Date().toISOString(),
+      fromAdmin: socket.user.role === 'admin',
+    };
+    // Broadcast to admins
+    io.to('admins').emit('chat_incoming', msg);
+    // Echo back to sender
+    socket.emit('chat_echo', msg);
+    console.log(`💬 Chat from ${msg.from}: ${msg.message}`);
+  });
+
+  socket.on('admin_chat_reply', ({ toUserId, message }) => {
+    if (!socket.user || socket.user.role !== 'admin') return;
+    const msg = {
+      from: 'Support',
+      message: String(message).substring(0, 500),
+      time: new Date().toISOString(),
+      fromAdmin: true,
+    };
+    // Send to all sockets of that user (simple broadcast with filter)
+    io.emit(`chat_reply_${toUserId}`, msg);
+  });
+
+  // ── KYC: Submit ───────────────────────────────────────────────────
+  socket.on('submit_kyc', async ({ idType, idNumber, fullName }) => {
+    if (!socket.user) return socket.emit('kyc_error', { message: 'Not authenticated.' });
+    try {
+      const existing = await Kyc.findOne({ userId: socket.user.userId });
+      if (existing && existing.status === 'Approved') return socket.emit('kyc_error', { message: 'Already verified.' });
+      await Kyc.findOneAndUpdate(
+        { userId: socket.user.userId },
+        { userId: socket.user.userId, phone: socket.user.phone, idType, idNumber, fullName, status: 'Pending', submittedAt: new Date() },
+        { upsert: true, new: true }
+      );
+      await User.findByIdAndUpdate(socket.user.userId, { kycStatus: 'pending' });
+      socket.emit('kyc_submitted', { message: 'KYC submitted! We’ll review within 24 hours.' });
+      io.to('admins').emit('kyc_new_submission', { phone: socket.user.phone, idType, fullName });
+    } catch (err) {
+      console.error('KYC submit error:', err);
+      socket.emit('kyc_error', { message: 'Submission failed. Please try again.' });
+    }
+  });
+
+  socket.on('admin_get_kyc_list', async () => {
+    if (!socket.user || socket.user.role !== 'admin') return;
+    try {
+      const list = await Kyc.find({ status: 'Pending' }).limit(50).lean();
+      socket.emit('admin_kyc_list', list);
+    } catch (err) { console.error('KYC list error:', err); }
+  });
+
+  socket.on('admin_review_kyc', async ({ userId, status, note }) => {
+    if (!socket.user || socket.user.role !== 'admin') return;
+    try {
+      await Kyc.findOneAndUpdate({ userId }, { status, reviewNote: note || '', reviewedAt: new Date() });
+      await User.findByIdAndUpdate(userId, { kycStatus: status.toLowerCase() });
+      const kycStatus = status === 'Approved' ? 'approved' : 'rejected';
+      io.emit(`kyc_status_${userId}`, { status: kycStatus, note });
+      socket.emit('admin_kyc_reviewed', { userId, status });
+    } catch (err) { console.error('KYC review error:', err); }
   });
 
   // ── Aviator: place bet during BETTING phase ───────────────────
@@ -978,6 +1140,19 @@ const twilioClient = (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
 
+// SMS helper — gracefully skips if Twilio not configured
+const sendSMS = async (to, body) => {
+  if (!twilioClient || !process.env.TWILIO_SMS_FROM) {
+    console.log(`[Mock SMS to ${to}]: ${body}`);
+    return;
+  }
+  try {
+    await twilioClient.messages.create({ body, from: process.env.TWILIO_SMS_FROM, to });
+  } catch (err) {
+    console.error(`SMS failed to ${to}:`, err.message);
+  }
+};
+
 app.post('/api/auth/send-otp', async (req, res) => {
   const { phone } = req.body;
   if (!phone) return res.status(400).json({ ok: false, error: 'Phone number is required' });
@@ -1000,7 +1175,7 @@ app.post('/api/auth/send-otp', async (req, res) => {
 });
 
 app.post('/api/auth/verify-otp', async (req, res) => {
-  const { phone, code, name, countryId } = req.body;
+  const { phone, code, name, countryId, referredBy } = req.body;
   if (!phone || !code) return res.status(400).json({ ok: false, error: 'Phone and code are required' });
 
   const approved = (() => {
@@ -1011,13 +1186,16 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   const issueToken = async () => {
     // Upsert user in DB
     const role = phone === ADMIN_PHONE ? 'admin' : 'user';
+    const baseCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const referralCode = `BW-${baseCode}`;
+    
     const user = await User.findOneAndUpdate(
       { phone },
-      { $setOnInsert: { phone, name: name || '', role, countryId: countryId || 'KE', balance: 0 } },
+      { $setOnInsert: { phone, name: name || '', role, countryId: countryId || 'KE', balance: 0, referralCode, referredBy: referredBy || null } },
       { upsert: true, new: true }
     );
     const token = signToken(user);
-    return res.json({ ok: true, status: 'approved', token, user: { phone: user.phone, name: user.name, role: user.role, balance: user.balance, countryId: user.countryId } });
+    return res.json({ ok: true, status: 'approved', token, user: { phone: user.phone, name: user.name, role: user.role, balance: user.balance, bonusBalance: user.bonusBalance, countryId: user.countryId, referralCode: user.referralCode } });
   };
 
   if (approved === true) return issueToken();
@@ -1051,16 +1229,42 @@ app.get('/api/user/me', async (req, res) => {
     res.status(500).json({ ok: false, error: 'Server error' });
   }
 });
-
 // Credit balance after deposit (in real app, verify M-Pesa callback here)
 app.post('/api/deposit', async (req, res) => {
   const { amount, phone, method } = req.body;
   if (!amount || amount <= 0) return res.status(400).json({ ok: false, error: 'Invalid amount' });
+  const ref = 'DEP-' + Date.now();
+  let bonusGranted = 0;
   try {
-    const user = await User.findOneAndUpdate({ phone }, { $inc: { balance: parseFloat(amount) } }, { new: true });
-    if (user) await Transaction.create({ userId: user._id, phone, type: 'deposit', amount: parseFloat(amount), ref: 'DEP-' + Date.now() });
+    const prevUser = await User.findOne({ phone }).lean();
+    const wasFirstDeposit = !prevUser || prevUser.totalDeposited === 0;
+    const depositUser = await User.findOneAndUpdate(
+      { phone },
+      { $inc: { balance: parseFloat(amount), totalDeposited: parseFloat(amount) } },
+      { new: true }
+    );
+    if (depositUser) {
+      await Transaction.create({ userId: depositUser._id, phone, type: 'deposit', amount: parseFloat(amount), ref });
+      // Referral bonus: if this is the first deposit, grant KSh 50 bonus to referrer
+      if (wasFirstDeposit && depositUser.referredBy) {
+        const referrer = await User.findOneAndUpdate(
+          { referralCode: depositUser.referredBy },
+          { $inc: { bonusBalance: 50, referralCount: 1, referralEarned: 50 } },
+          { new: true }
+        );
+        if (referrer) {
+          bonusGranted = 50;
+          await Transaction.create({ userId: referrer._id, phone: referrer.phone, type: 'referral_bonus', amount: 50, ref: `REF-${phone}` });
+          io.emit('bonus_update_target', { userId: referrer._id.toString(), bonusBalance: referrer.bonusBalance });
+          sendSMS(referrer.phone, `🎉 Your referral made their first deposit! KSh 50 bonus added to your account.`);
+        }
+      }
+      // Notify depositing user via socket
+      io.emit('balance_update_target', { userId: depositUser._id.toString(), balance: depositUser.balance });
+      sendSMS(phone, `✅ Deposit of KSh ${amount} confirmed. Balance: KSh ${depositUser.balance}. Good luck on BetsWal!`);
+    }
   } catch (err) { console.error('Deposit DB error:', err); }
-  res.json({ ok: true, ref: 'DEP-' + Date.now(), amount, method: method || 'M-Pesa', message: 'STK push sent to ' + phone });
+  res.json({ ok: true, ref, amount, method: method || 'M-Pesa', message: 'STK push sent to ' + phone, bonusGranted });
 });
 
 // User history: bets + transactions (JWT protected)

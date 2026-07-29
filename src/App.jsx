@@ -8,6 +8,8 @@ import BetslipRight from './components/BetslipRight';
 import JackpotModal from './components/JackpotModal';
 import BetTracker from './components/BetTracker';
 import Footer from './components/Footer';
+import { InstallPrompt } from './components/InstallPrompt';
+import { LiveChat } from './components/LiveChat';
 
 function AppInner() {
   const [bets, setBets] = useState([]);
@@ -128,6 +130,12 @@ function AppInner() {
 
       {/* Floating Bet Tracker (always visible when user has bets) */}
       <BetTracker />
+
+      {/* PWA Install Prompt */}
+      <InstallPrompt />
+
+      {/* Live Chat */}
+      <LiveChat />
 
       {/* Footer */}
       <Footer setActiveSection={setActiveSection} />

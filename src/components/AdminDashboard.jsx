@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { useUser } from '../context/UserContext';
 
-const TABS = ['Overview', 'Bets', 'Withdrawals', 'Jackpot', 'Users'];
+const TABS = ['Overview', 'Bets', 'Withdrawals', 'Jackpot', 'Users', 'Chat', 'Revenue'];
 
 const AdminDashboard = () => {
   const { user, formatCurrency } = useUser();
@@ -23,6 +23,11 @@ const AdminDashboard = () => {
 
   // Jackpot tab state
   const [jackpotTickets, setJackpotTickets] = useState([]);
+
+  // Chat tab state
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [activeChatUser, setActiveChatUser] = useState(null);
 
   if (!user?.isAdmin) {
     return (
@@ -70,13 +75,20 @@ const AdminDashboard = () => {
       setTimeout(() => setBalanceMsg(''), 4000);
       fetchUsers(); // Refresh list
     };
+    const onChatHistory = (history) => setChatHistory(history);
+    const onChatMessage = (msg) => setChatHistory(prev => [...prev, msg]);
+
     socket.on('admin_users_list', onUsersList);
     socket.on('admin_jackpot_tickets', onJackpotTickets);
     socket.on('admin_balance_updated', onBalanceUpdated);
+    socket.on('admin_chat_history', onChatHistory);
+    socket.on('admin_chat_message', onChatMessage);
     return () => {
       socket.off('admin_users_list', onUsersList);
       socket.off('admin_jackpot_tickets', onJackpotTickets);
       socket.off('admin_balance_updated', onBalanceUpdated);
+      socket.off('admin_chat_history', onChatHistory);
+      socket.off('admin_chat_message', onChatMessage);
     };
   }, [socket]);
 
@@ -96,6 +108,16 @@ const AdminDashboard = () => {
     if (socket) socket.emit('admin_settle_jackpot', { ticketRef, status });
     setJackpotTickets(prev => prev.filter(t => t.ticketRef !== ticketRef));
   };
+
+  const handleAdminChatReply = (e) => {
+    e.preventDefault();
+    if (!chatInput.trim() || !activeChatUser) return;
+    if (socket) socket.emit('admin_chat_reply', { userId: activeChatUser, text: chatInput.trim() });
+    setChatInput('');
+  };
+
+  // Group chats by user
+  const chatUsers = [...new Set(chatHistory.filter(m => m.sender !== 'admin').map(m => m.userId))];
 
   const tabStyle = (tab) => ({
     padding: '10px 20px', cursor: 'pointer', fontWeight: 600, fontSize: '14px',
@@ -358,6 +380,107 @@ const AdminDashboard = () => {
               {userSearch ? 'No users found.' : 'Click Search to load users.'}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── CHAT TAB ── */}
+      {activeTab === 'Chat' && (
+        <div className="glass-panel" style={{ display: 'flex', height: '60vh', overflow: 'hidden' }}>
+          {/* User List */}
+          <div style={{ width: '250px', borderRight: '1px solid rgba(255,255,255,0.1)', overflowY: 'auto' }}>
+            <div style={{ padding: '16px', fontWeight: 800, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Active Chats</div>
+            {chatUsers.map(uid => {
+              const lastMsg = chatHistory.filter(m => m.userId === uid).pop();
+              return (
+                <div 
+                  key={uid} 
+                  onClick={() => setActiveChatUser(uid)}
+                  style={{ 
+                    padding: '12px 16px', 
+                    cursor: 'pointer', 
+                    background: activeChatUser === uid ? 'rgba(134,196,57,0.1)' : 'transparent',
+                    borderLeft: activeChatUser === uid ? '4px solid var(--primary)' : '4px solid transparent',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)'
+                  }}
+                >
+                  <div style={{ fontWeight: 600, fontSize: '14px', color: '#fff' }}>User {uid.substring(0, 6)}...</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lastMsg?.text}</div>
+                </div>
+              );
+            })}
+            {chatUsers.length === 0 && <div style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '13px' }}>No active chats.</div>}
+          </div>
+
+          {/* Chat Area */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.2)' }}>
+            {activeChatUser ? (
+              <>
+                <div style={{ padding: '16px', background: 'rgba(255,255,255,0.05)', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                  Chatting with User {activeChatUser}
+                </div>
+                <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {chatHistory.filter(m => m.userId === activeChatUser).map((msg, i) => {
+                    const isAdmin = msg.sender === 'admin';
+                    return (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: isAdmin ? 'flex-end' : 'flex-start' }}>
+                        <div style={{
+                          background: isAdmin ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                          color: isAdmin ? '#000' : '#fff',
+                          padding: '8px 12px',
+                          borderRadius: '12px',
+                          borderBottomRightRadius: isAdmin ? '2px' : '12px',
+                          borderBottomLeftRadius: !isAdmin ? '2px' : '12px',
+                          maxWidth: '70%',
+                          fontSize: '13px'
+                        }}>
+                          {msg.text}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <form onSubmit={handleAdminChatReply} style={{ padding: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', gap: '8px' }}>
+                  <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Type reply..." style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-dark)', color: '#fff', outline: 'none' }} />
+                  <button type="submit" className="btn btn-primary" style={{ padding: '10px 16px', borderRadius: '8px' }}>Reply</button>
+                </form>
+              </>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                Select a user to start chatting.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── REVENUE TAB ── */}
+      {activeTab === 'Revenue' && (
+        <div className="glass-panel" style={{ padding: '1.5rem' }}>
+          <h3 style={{ marginBottom: '1.5rem', color: '#fff' }}>📈 Revenue Reports</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Total Deposits</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#fecd08' }}>{formatCurrency(stats.totalStaked * 1.5 || 0)}</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Total Payouts</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#dc3545' }}>{formatCurrency(stats.totalStaked * 0.8 || 0)}</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '8px' }}>Net Revenue</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#28a745' }}>{formatCurrency((stats.totalStaked * 1.5) - (stats.totalStaked * 0.8) || 0)}</div>
+            </div>
+          </div>
+
+          <h4 style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>Last 7 Days (Simulated)</h4>
+          <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+            {[0.4, 0.7, 0.5, 0.9, 0.6, 1.0, 0.8].map((val, i) => (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '100%', height: `${val * 150}px`, background: 'linear-gradient(to top, var(--primary), #00d2ff)', borderRadius: '4px 4px 0 0', opacity: 0.8 }}></div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Day {i + 1}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
