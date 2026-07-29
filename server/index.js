@@ -1,10 +1,15 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
+const twilio = require('twilio');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const { connectDB, User, Bet, SharedBetslip, Withdrawal } = require('./db');
+
+connectDB();
 
 const app = express();
 // Security middlewares
@@ -394,10 +399,16 @@ io.on('connection', (socket) => {
   });
 
   // ── Admin Actions ────────────────────────────────────────────
-  socket.on('admin_settle_bet', ({ ticketRef, status }) => {
-    // Find in betsLog
+  socket.on('admin_settle_bet', async ({ ticketRef, status }) => {
+    // Update in-memory log
     const bet = adminStats.betsLog.find(b => b.ticketRef === ticketRef);
     if (bet) bet.status = status;
+    // Persist to MongoDB
+    try {
+      await Bet.findOneAndUpdate({ ticketRef }, { status });
+    } catch (err) {
+      console.error('DB Error settling bet:', err);
+    }
     io.emit('bet_settled', { ticketRef, status });
     io.to('admins').emit('admin_stats', adminStats);
   });
@@ -412,39 +423,53 @@ io.on('connection', (socket) => {
     io.emit('promo_broadcast', { message });
   });
 
-  socket.on('approve_withdrawal', ({ reqId }) => {
+  socket.on('approve_withdrawal', async ({ reqId }) => {
     const req = adminStats.pendingWithdrawals.find(r => r.reqId === reqId);
     if (req) {
       req.status = 'Approved';
       io.emit('withdrawal_approved', { phone: req.phone, reqId: req.reqId, amount: req.amount });
-      // Remove from pending list after a delay or immediately
       adminStats.pendingWithdrawals = adminStats.pendingWithdrawals.filter(r => r.reqId !== reqId);
       io.to('admins').emit('admin_stats', adminStats);
+      try {
+        await Withdrawal.findOneAndUpdate({ reqId }, { status: 'Approved' });
+      } catch (err) {
+        console.error('DB Error approving withdrawal:', err);
+      }
     }
   });
 
-  socket.on('reject_withdrawal', ({ reqId }) => {
+  socket.on('reject_withdrawal', async ({ reqId }) => {
     const req = adminStats.pendingWithdrawals.find(r => r.reqId === reqId);
     if (req) {
       req.status = 'Rejected';
       io.emit('withdrawal_rejected', { phone: req.phone, reqId: req.reqId, amount: req.amount });
       adminStats.pendingWithdrawals = adminStats.pendingWithdrawals.filter(r => r.reqId !== reqId);
       io.to('admins').emit('admin_stats', adminStats);
+      try {
+        await Withdrawal.findOneAndUpdate({ reqId }, { status: 'Rejected' });
+      } catch (err) {
+        console.error('DB Error rejecting withdrawal:', err);
+      }
     }
   });
 
   // ── User Withdrawal Request ──────────────────────────────────
-  socket.on('request_withdrawal', ({ phone, amount }) => {
+  socket.on('request_withdrawal', async ({ phone, amount }) => {
     if (!checkRateLimit(socket.id, 'request_withdrawal', 3, 10000)) {
       return socket.emit('withdrawal_error', { message: 'Too many requests.' });
     }
     const reqId = 'WDR-' + Date.now();
     adminStats.pendingWithdrawals.push({ reqId, phone, amount, status: 'Pending', time: new Date().toISOString() });
     io.to('admins').emit('admin_stats', adminStats);
+    try {
+      await Withdrawal.create({ reqId, phone, amount, status: 'Pending' });
+    } catch (err) {
+      console.error('DB Error saving withdrawal:', err);
+    }
   });
 
   // ── Betslip sharing ──────────────────────────────────────────
-  socket.on('save_betslip', ({ bets }) => {
+  socket.on('save_betslip', async ({ bets }) => {
     if (!checkRateLimit(socket.id, 'save_betslip', 5, 10000)) {
       return socket.emit('betslip_error', { message: 'Too many requests. Please wait.' });
     }
@@ -452,17 +477,20 @@ io.on('connection', (socket) => {
 
     // Generate a unique 6-char code
     let code;
+    let isUnique = false;
     do {
       code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    } while (sharedBetslips[code]);
+      const existing = await SharedBetslip.findOne({ code });
+      if (!existing) isUnique = true;
+    } while (!isUnique);
 
-    sharedBetslips[code] = { bets, savedAt: Date.now() };
+    await SharedBetslip.create({ code, bets });
     socket.emit('betslip_saved', { code });
     console.log(`💾 Betslip saved with unique code: ${code}`);
   });
 
-  socket.on('load_betslip', ({ code }) => {
-    const entry = sharedBetslips[code.toUpperCase()];
+  socket.on('load_betslip', async ({ code }) => {
+    const entry = await SharedBetslip.findOne({ code: code.toUpperCase() });
     if (entry) {
       socket.emit('betslip_loaded', { bets: entry.bets });
     } else {
@@ -471,7 +499,7 @@ io.on('connection', (socket) => {
   });
 
   // ── Place bet ────────────────────────────────────────────────
-  socket.on('place_bet', ({ bets, stake }) => {
+  socket.on('place_bet', async ({ bets, stake }) => {
     if (!checkRateLimit(socket.id, 'place_bet', 3, 5000)) {
       return socket.emit('bet_error', { message: 'Too many bets placed quickly. Please wait.' });
     }
@@ -493,6 +521,20 @@ io.on('connection', (socket) => {
     const totalOdds = bets.reduce((acc, b) => acc * b.odds, 1);
     const possibleWin = (totalOdds * stakeNum).toFixed(2);
     const ticketRef = 'BET-' + Date.now();
+    
+    // Save to MongoDB
+    try {
+      await Bet.create({
+        ticketRef,
+        stake: stakeNum,
+        totalOdds: parseFloat(totalOdds.toFixed(2)),
+        possibleWin: parseFloat(possibleWin),
+        bets,
+        status: 'Pending'
+      });
+    } catch (err) {
+      console.error('DB Error placing bet:', err);
+    }
     
     socket.emit('bet_confirmed', { ticketRef, totalOdds: totalOdds.toFixed(2), possibleWin, stake: stakeNum });
     
@@ -715,6 +757,60 @@ app.post('/api/withdraw', (req, res) => {
   res.json({ ok: true, ref: 'WDR-' + Date.now(), amount, message: 'Withdrawal of ' + amount + ' initiated to ' + phone });
 });
 
+// Twilio Setup
+const twilioClient = (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN)
+  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+  : null;
+
+app.post('/api/auth/send-otp', async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) return res.status(400).json({ ok: false, error: 'Phone number is required' });
+  
+  if (!twilioClient || !process.env.TWILIO_VERIFY_SERVICE_SID) {
+    // Mock for local dev without credentials
+    console.log(`[Mock SMS] Sending OTP to ${phone}`);
+    return res.json({ ok: true, message: 'Mock OTP sent (check console)' });
+  }
+
+  try {
+    const verification = await twilioClient.verify.v2.services(process.env.TWILIO_VERIFY_SERVICE_SID)
+      .verifications
+      .create({ to: phone, channel: 'sms' });
+    res.json({ ok: true, status: verification.status });
+  } catch (error) {
+    console.error('Twilio Error (send):', error);
+    res.status(500).json({ ok: false, error: 'Failed to send OTP' });
+  }
+});
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+  const { phone, code } = req.body;
+  if (!phone || !code) return res.status(400).json({ ok: false, error: 'Phone and code are required' });
+
+  if (!twilioClient || !process.env.TWILIO_VERIFY_SERVICE_SID) {
+    // Mock for local dev
+    if (code === '123456') {
+      return res.json({ ok: true, status: 'approved' });
+    }
+    return res.status(400).json({ ok: false, error: 'Invalid code (mock requires 123456)' });
+  }
+
+  try {
+    const verificationCheck = await twilioClient.verify.v2.services(process.env.TWILIO_VERIFY_SERVICE_SID)
+      .verificationChecks
+      .create({ to: phone, code: code });
+      
+    if (verificationCheck.status === 'approved') {
+      res.json({ ok: true, status: 'approved' });
+    } else {
+      res.status(400).json({ ok: false, error: 'Invalid or expired code' });
+    }
+  } catch (error) {
+    console.error('Twilio Error (verify):', error);
+    res.status(500).json({ ok: false, error: 'Failed to verify OTP' });
+  }
+});
+
 // Leaderboard — shuffle/drift every 15 seconds
 const LEADERBOARD_NAMES = [
   { phone: '07****23', flag: '🇰🇪' }, { phone: '08****17', flag: '🇳🇬' },
@@ -745,6 +841,20 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
+
+// Self-ping to prevent sleep on free hosting (e.g. Render, Heroku)
+// Set PUBLIC_URL or SELF_PING_URL environment variables in your hosting provider
+const PING_URL = process.env.PUBLIC_URL || process.env.SELF_PING_URL || `http://localhost:${PORT}/health`;
+const pingLib = PING_URL.startsWith('https') ? require('https') : require('http');
+
+setInterval(() => {
+  pingLib.get(PING_URL, (res) => {
+    console.log(`[Self-Ping] Successfully pinged ${PING_URL} - Status: ${res.statusCode}`);
+  }).on('error', (err) => {
+    console.error(`[Self-Ping] Error pinging ${PING_URL}:`, err.message);
+  });
+}, 14 * 60 * 1000); // 14 minutes
+
 server.listen(PORT, () => {
   console.log(`🟢 BetsWal WebSocket server on port ${PORT}`);
   console.log(`   Events: live_match_update | live_count_update | highlight_update | jackpot_update | aviator_tick | aviator_crashed`);
