@@ -14,9 +14,11 @@ const path = require('path');
 const { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket, Kyc } = require('./db');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const axios = require('axios');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'betswal-dev-secret-change-in-prod';
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '0000000000';
+const ODDS_API_KEY = process.env.ODDS_API_KEY || null;
 
 const signToken = (user) => jwt.sign(
   { userId: user._id, phone: user.phone, role: user.role },
@@ -183,6 +185,75 @@ const TEAMS = {
 let highlightMatches = [];
 let matchIdCounter = 1;
 
+// ── The Odds API Integration ────────────────────────────────────────
+let realSportsCache = [];
+let lastOddsApiFetch = 0;
+const FETCH_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+const fetchRealSportsData = async () => {
+  if (!ODDS_API_KEY) return;
+  try {
+    console.log('🔄 Fetching real sports data from The Odds API...');
+    // Fetch upcoming soccer matches
+    const res = await axios.get(`https://api.the-odds-api.com/v4/sports/soccer/odds`, {
+      params: {
+        apiKey: ODDS_API_KEY,
+        regions: 'eu',
+        markets: 'h2h',
+        oddsFormat: 'decimal',
+        dateFormat: 'iso'
+      }
+    });
+
+    const matches = res.data;
+    if (matches && matches.length > 0) {
+      realSportsCache = matches.slice(0, 50).map((m, i) => {
+        // Find the first bookmaker odds for h2h
+        const h2hMarket = m.bookmakers?.[0]?.markets?.find(mk => mk.key === 'h2h');
+        const outcomes = h2hMarket?.outcomes || [];
+        
+        let odd1 = 1.0, oddX = 1.0, odd2 = 1.0;
+        if (outcomes.length >= 2) {
+          const homeOdd = outcomes.find(o => o.name === m.home_team)?.price || 2.0;
+          const awayOdd = outcomes.find(o => o.name === m.away_team)?.price || 2.0;
+          const drawOdd = outcomes.find(o => o.name.toLowerCase() === 'draw')?.price || 3.0;
+          odd1 = homeOdd;
+          oddX = drawOdd;
+          odd2 = awayOdd;
+        }
+
+        // Format date "DD/MM, HH:MM"
+        const d = new Date(m.commence_time);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const hours = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+
+        return {
+          id: 5000 + i, // offset ID so it doesn't conflict
+          sport: 'Soccer',
+          country: m.sport_title || 'World',
+          home: m.home_team,
+          away: m.away_team,
+          date: `${day}/${month}, ${hours}:${mins}`,
+          odds: [odd1, oddX, odd2]
+        };
+      });
+      lastOddsApiFetch = Date.now();
+      console.log(`✅ Cached ${realSportsCache.length} real matches.`);
+    }
+  } catch (err) {
+    console.error('❌ Error fetching from The Odds API:', err.response?.data || err.message);
+  }
+};
+
+// Initial fetch if key exists
+if (ODDS_API_KEY) {
+  fetchRealSportsData();
+  setInterval(fetchRealSportsData, FETCH_INTERVAL_MS);
+}
+// ─────────────────────────────────────────────────────────────────
+
 for (let day = 0; day <= 7; day++) {
   // Generate matches for each sport
   Object.keys(LEAGUES).forEach(sport => {
@@ -342,11 +413,12 @@ setInterval(() => {
 // TICK: HIGHLIGHT ODDS — gentle drift every 8 seconds
 // ─────────────────────────────────────────────────────────────────
 setInterval(() => {
-  highlightMatches = highlightMatches.map(match => ({
+  const baseData = (ODDS_API_KEY && realSportsCache.length > 0) ? realSportsCache : highlightMatches;
+  const currentHighlights = baseData.map(match => ({
     ...match,
     odds: match.odds.map(o => jitter(o, 0.06)),
   }));
-  io.emit('highlight_update', highlightMatches);
+  io.emit('highlight_update', currentHighlights);
 }, 8000);
 
 // ─────────────────────────────────────────────────────────────────
