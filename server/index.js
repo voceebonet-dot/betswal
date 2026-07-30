@@ -13,11 +13,9 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket, Kyc } = require('./db');
 const axios = require('axios');
-
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || 'sk_test_placeholder';
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const axios = require('axios');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'betswal-dev-secret-change-in-prod';
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '0000000000';
