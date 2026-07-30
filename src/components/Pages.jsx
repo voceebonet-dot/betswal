@@ -783,11 +783,17 @@ export const DepositPage = ({ setActiveSection }) => {
       <button className='btn btn-primary' onClick={() => setActiveSection('Login')}>Login Now</button>
     </div>
   );
-  const handleDeposit = () => {
-    const result = deposit(parseFloat(amount));
-    if (result.ok) { setMsg('Deposited!'); setAmount(''); }
+  const handleDeposit = async () => {
+    setMsg('Processing...');
+    const result = await deposit(parseFloat(amount));
+    if (result.ok) { 
+      setMsg(result.pending ? 'Redirecting to payment gateway...' : 'Deposited!'); 
+      if (!result.pending) setAmount(''); 
+    }
     else setMsg('Error: ' + result.error);
-    setTimeout(() => setMsg(''), 3000);
+    if (!result.pending) {
+      setTimeout(() => setMsg(''), 3000);
+    }
   };
   return (
     <div style={{ maxWidth: '480px', margin: '2rem auto' }}>

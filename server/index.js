@@ -12,6 +12,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket, Kyc } = require('./db');
+const axios = require('axios');
+
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || 'sk_test_placeholder';
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const axios = require('axios');
@@ -607,6 +610,19 @@ io.on('connection', (socket) => {
       req.status = 'Approved';
       io.emit('withdrawal_approved', { phone: req.phone, reqId: req.reqId, amount: req.amount });
       adminStats.pendingWithdrawals = adminStats.pendingWithdrawals.filter(r => r.reqId !== reqId);
+
+      // Real payout via Paystack Transfers API (Simulated structure)
+      try {
+        await axios.post('https://api.paystack.co/transfer', {
+          source: "balance",
+          amount: req.amount * 100, // in kobo/cents
+          recipient: "RCP_placeholder_for_user",
+          reason: "BetsWal Withdrawal"
+        }, { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` } });
+        console.log(`Paystack transfer initiated for ${req.phone} - ${req.amount}`);
+      } catch(err) {
+        console.error("Paystack transfer error:", err.response?.data || err.message);
+      }
       io.to('admins').emit('admin_stats', adminStats);
       try {
         await Withdrawal.findOneAndUpdate({ reqId }, { status: 'Approved' });
@@ -1364,42 +1380,75 @@ app.get('/api/user/me', async (req, res) => {
     res.status(500).json({ ok: false, error: 'Server error' });
   }
 });
-// Credit balance after deposit (in real app, verify M-Pesa callback here)
+// Initiate real payment using Paystack
 app.post('/api/deposit', async (req, res) => {
   const { amount, phone, method } = req.body;
   if (!amount || amount <= 0) return res.status(400).json({ ok: false, error: 'Invalid amount' });
-  const ref = 'DEP-' + Date.now();
-  let bonusGranted = 0;
+  
   try {
-    const prevUser = await User.findOne({ phone }).lean();
-    const wasFirstDeposit = !prevUser || prevUser.totalDeposited === 0;
-    const depositUser = await User.findOneAndUpdate(
-      { phone },
-      { $inc: { balance: parseFloat(amount), totalDeposited: parseFloat(amount) } },
-      { new: true }
-    );
-    if (depositUser) {
-      await Transaction.create({ userId: depositUser._id, phone, type: 'deposit', amount: parseFloat(amount), ref });
-      // Referral bonus: if this is the first deposit, grant KSh 50 bonus to referrer
-      if (wasFirstDeposit && depositUser.referredBy) {
-        const referrer = await User.findOneAndUpdate(
-          { referralCode: depositUser.referredBy },
-          { $inc: { bonusBalance: 50, referralCount: 1, referralEarned: 50 } },
-          { new: true }
-        );
-        if (referrer) {
-          bonusGranted = 50;
-          await Transaction.create({ userId: referrer._id, phone: referrer.phone, type: 'referral_bonus', amount: 50, ref: `REF-${phone}` });
-          io.emit('bonus_update_target', { userId: referrer._id.toString(), bonusBalance: referrer.bonusBalance });
-          sendSMS(referrer.phone, `🎉 Your referral made their first deposit! KSh 50 bonus added to your account.`);
-        }
-      }
-      // Notify depositing user via socket
-      io.emit('balance_update_target', { userId: depositUser._id.toString(), balance: depositUser.balance });
-      sendSMS(phone, `✅ Deposit of KSh ${amount} confirmed. Balance: KSh ${depositUser.balance}. Good luck on BetsWal!`);
+    const response = await axios.post('https://api.paystack.co/transaction/initialize', {
+      email: `${phone.replace('+', '')}@betswal.com`, // Paystack requires email
+      amount: amount * 100, // in kobo/cents
+      callback_url: `http://localhost:5173/`,
+      metadata: { phone }
+    }, {
+      headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` }
+    });
+
+    if (response.data && response.data.status) {
+      return res.json({ ok: true, checkoutUrl: response.data.data.authorization_url, ref: response.data.data.reference });
+    } else {
+      return res.json({ ok: false, error: 'Payment gateway error' });
     }
-  } catch (err) { console.error('Deposit DB error:', err); }
-  res.json({ ok: true, ref, amount, method: method || 'M-Pesa', message: 'STK push sent to ' + phone, bonusGranted });
+  } catch(e) {
+    console.error("Paystack Initialize Error:", e.response?.data || e.message);
+    return res.json({ ok: false, error: 'Failed to initialize payment' });
+  }
+});
+
+// Paystack Webhook for successful deposits
+app.post('/api/paystack/webhook', express.json(), async (req, res) => {
+  const event = req.body;
+  if (event.event === 'charge.success') {
+    const amount = event.data.amount / 100;
+    const phone = event.data.metadata.phone;
+    const ref = event.data.reference;
+
+    try {
+      const exists = await Transaction.findOne({ ref });
+      if (exists) return res.sendStatus(200);
+
+      const prevUser = await User.findOne({ phone }).lean();
+      const wasFirstDeposit = !prevUser || prevUser.totalDeposited === 0;
+
+      const depositUser = await User.findOneAndUpdate(
+        { phone },
+        { $inc: { balance: amount, totalDeposited: amount } },
+        { new: true }
+      );
+
+      if (depositUser) {
+        await Transaction.create({ userId: depositUser._id, phone, type: 'deposit', amount, ref });
+        
+        if (wasFirstDeposit && depositUser.referredBy) {
+          const referrer = await User.findOneAndUpdate(
+            { referralCode: depositUser.referredBy },
+            { $inc: { bonusBalance: 50, referralCount: 1, referralEarned: 50 } },
+            { new: true }
+          );
+          if (referrer) {
+            await Transaction.create({ userId: referrer._id, phone: referrer.phone, type: 'referral_bonus', amount: 50, ref: `REF-${phone}` });
+            io.emit('bonus_update_target', { userId: referrer._id.toString(), bonusBalance: referrer.bonusBalance });
+            sendSMS(referrer.phone, `🎉 Your referral made their first deposit! KSh 50 bonus added to your account.`);
+          }
+        }
+        
+        io.emit('balance_update_target', { userId: depositUser._id.toString(), balance: depositUser.balance });
+        sendSMS(phone, `✅ Deposit of KSh ${amount} confirmed via Paystack. Balance: KSh ${depositUser.balance}.`);
+      }
+    } catch (err) { console.error('Webhook DB error:', err); }
+  }
+  res.sendStatus(200);
 });
 
 // User history: bets + transactions (JWT protected)

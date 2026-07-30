@@ -246,6 +246,10 @@ export const UserProvider = ({ children }) => {
       });
       const data = await res.json();
       if (data.ok) {
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
+          return { ok: true, pending: true };
+        }
         setWallet(prev => prev + amt);
         setTransactions(prev => [{ type: 'deposit', amount: amt, date: new Date().toISOString(), ref: data.ref }, ...prev]);
         return { ok: true };

@@ -174,20 +174,17 @@ const AviatorGraph = ({ multiplier, phase, planePos, setPlanePos }) => {
   const pointsRef = useRef([{ t: 0, m: 1 }]);
   const startRef  = useRef(Date.now());
   const animRef   = useRef(null);
+  const visualMultRef = useRef(1.0);
 
   useEffect(() => {
     if (phase === 'betting') {
       pointsRef.current = [{ t: 0, m: 1 }];
       startRef.current  = Date.now();
+      visualMultRef.current = 1.0;
     }
   }, [phase]);
 
-  useEffect(() => {
-    if (phase === 'flying') {
-      const elapsed = (Date.now() - startRef.current) / 1000;
-      pointsRef.current.push({ t: elapsed, m: multiplier });
-    }
-  }, [multiplier, phase]);
+  // The old shaky points collection was removed here.
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -221,6 +218,24 @@ const AviatorGraph = ({ multiplier, phase, planePos, setPlanePos }) => {
           ctx.setLineDash([]);
         }
       });
+
+      if (phase === 'flying') {
+        const elapsed = Math.max(0.01, (Date.now() - startRef.current) / 1000);
+        
+        if (visualMultRef.current < multiplier) {
+          visualMultRef.current += (multiplier - visualMultRef.current) * 0.15;
+        } else {
+          visualMultRef.current += (visualMultRef.current * 0.03) * (16 / 100);
+        }
+        
+        const newPts = [{ t: 0, m: 1 }];
+        for (let i = 1; i <= 60; i++) {
+          const t = (i / 60) * elapsed;
+          const m = Math.pow(visualMultRef.current, t / elapsed);
+          newPts.push({ t, m });
+        }
+        pointsRef.current = newPts;
+      }
 
       const pts = pointsRef.current;
       if (pts.length < 2) { animRef.current = requestAnimationFrame(draw); return; }

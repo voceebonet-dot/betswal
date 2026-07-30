@@ -56,8 +56,8 @@ const Navbar = ({ activeSection, setActiveSection }) => {
 
           {user ? (
             /* ── Logged-in account controls ── */
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {/* Wallet badge */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Wallet / Deposit badge */}
               <div
                 onClick={() => handleNav('Deposit')}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(134,196,57,0.12)', border: '1px solid rgba(134,196,57,0.3)', borderRadius: '20px', padding: '5px 12px', cursor: 'pointer', transition: 'all 0.2s' }}
@@ -67,6 +67,16 @@ const Navbar = ({ activeSection, setActiveSection }) => {
                 <span style={{ fontSize: '14px' }}>💰</span>
                 <span style={{ color: '#86c439', fontWeight: 700, fontSize: '14px' }}>{formatCurrency(wallet)}</span>
                 <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>+ Deposit</span>
+              </div>
+
+              {/* Withdraw badge */}
+              <div
+                onClick={() => handleNav('Withdraw')}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(220,53,69,0.12)', border: '1px solid rgba(220,53,69,0.3)', borderRadius: '20px', padding: '5px 12px', cursor: 'pointer', transition: 'all 0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(220,53,69,0.22)'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(220,53,69,0.12)'}
+              >
+                <span style={{ color: '#dc3545', fontWeight: 700, fontSize: '12px' }}>- Withdraw</span>
               </div>
 
               {/* Avatar / dropdown */}
