@@ -158,13 +158,29 @@ const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
             })}
           </div>
 
-          <div style={{ width: '100px', textAlign: 'right', fontSize: '12px', marginLeft: '1rem' }}>
-            <div 
-              style={{ color: 'var(--primary)', marginBottom: '4px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}
+          <div style={{ width: '90px', textAlign: 'right', fontSize: '12px', marginLeft: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+            <span
               onClick={() => setActiveSection(`BetBuilder_${match.id}`)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                backgroundColor: 'rgba(134,196,57,0.12)',
+                border: '1px solid rgba(134,196,57,0.35)',
+                borderRadius: '6px',
+                padding: '3px 8px',
+                cursor: 'pointer',
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'var(--primary)',
+                letterSpacing: '0.3px',
+                transition: 'all 0.2s',
+                userSelect: 'none',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(134,196,57,0.22)'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(134,196,57,0.12)'; }}
             >
-              🛠️ Bet Builder
-            </div>
+              ⚡ Build
+            </span>
             <div style={{ color: 'var(--text-muted)' }}>{match.date}</div>
           </div>
         </div>

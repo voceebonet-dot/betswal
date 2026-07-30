@@ -32,7 +32,7 @@ export const BetBuilder = ({ matchId, bets, toggleBet, setActiveSection }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
         <button className="btn" onClick={() => setActiveSection('Home')} style={{ padding: '8px 12px', fontSize: '14px', background: 'rgba(255,255,255,0.1)', color: '#fff' }}>← Back</button>
         <div>
-          <h2 style={{ fontWeight: 800, fontSize: '20px', color: '#fff', margin: 0 }}>🛠️ Bet Builder</h2>
+          <h2 style={{ fontWeight: 800, fontSize: '20px', color: '#fff', margin: 0 }}>⚡ Match Builder</h2>
           <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{match.home} vs {match.away}</div>
         </div>
       </div>
