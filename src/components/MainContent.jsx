@@ -133,58 +133,88 @@ const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
 
   return (
     <div>
-      {filteredHighlights.map(match => (
-        <div key={match.id} className="match-row">
-          <div style={{ flex: 1, paddingRight: '1rem' }}>
-            <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '8px' }}>{getSportIcon(match.sport || activeSport)} {match.country}</div>
-            <div style={{ fontWeight: 500, color: '#fff', marginBottom: '4px' }}>{match.home}</div>
-            <div style={{ fontWeight: 500, color: '#fff' }}>{match.away}</div>
-          </div>
+      {filteredHighlights.map(match => {
+        const marketsCount = Math.floor(Math.random() * 15) + 20; // simulate market count 20-35
+        const isLive = match.status === 'live' || match.minute > 0;
+        return (
+          <div key={match.id} className="match-row" style={{ display: 'block', padding: '10px 12px' }}>
+            {/* Top: Teams + Time */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 500, color: '#e8e8e8', fontSize: '13px', marginBottom: '2px' }}>{match.home}</div>
+                <div style={{ fontWeight: 500, color: '#e8e8e8', fontSize: '13px' }}>{match.away}</div>
+              </div>
+              <div style={{ textAlign: 'right', fontSize: '11px', flexShrink: 0, marginLeft: '1rem' }}>
+                {isLive ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                      {match.half || '2nd half'}
+                    </span>
+                    <span style={{ color: '#e74c3c', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                      {match.minute ? `${match.minute}'` : '73:13\''}
+                    </span>
+                  </div>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)' }}>{match.date}</span>
+                )}
+              </div>
+            </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {match.odds.map((odd, idx) => {
-              const type = betTypes[idx];
-              const prev = prevOdds[match.id]?.[idx];
-              return (
-                <OddsBtn
-                  key={idx}
-                  odd={odd}
-                  prevOdd={prev}
-                  selected={bets.some(b => b.matchId === match.id && b.type === type)}
-                  label={type}
-                  onClick={() => toggleBet(match, type, odd)}
-                />
-              );
-            })}
-          </div>
+            {/* Bottom: Odds pills + Markets link */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', gap: '6px', flex: 1 }}>
+                {match.odds.map((odd, idx) => {
+                  const type = betTypes[idx];
+                  const prev = prevOdds[match.id]?.[idx];
+                  const isSelected = bets.some(b => b.matchId === match.id && b.type === type);
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => toggleBet(match, type, odd)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 4px',
+                        borderRadius: '8px',
+                        border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
+                        backgroundColor: isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.06)',
+                        color: isSelected ? '#000' : '#fff',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                        textAlign: 'center',
+                      }}
+                      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.11)'; }}
+                      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
+                    >
+                      {odd.toFixed(2)}
+                    </button>
+                  );
+                })}
+              </div>
 
-          <div style={{ width: '90px', textAlign: 'right', fontSize: '12px', marginLeft: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-            <span
-              onClick={() => setActiveSection(`BetBuilder_${match.id}`)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '4px',
-                backgroundColor: 'rgba(134,196,57,0.12)',
-                border: '1px solid rgba(134,196,57,0.35)',
-                borderRadius: '6px',
-                padding: '3px 8px',
-                cursor: 'pointer',
-                fontSize: '11px',
-                fontWeight: 700,
-                color: 'var(--primary)',
-                letterSpacing: '0.3px',
-                transition: 'all 0.2s',
-                userSelect: 'none',
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(134,196,57,0.22)'; }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(134,196,57,0.12)'; }}
-            >
-              ⚡ Build
-            </span>
-            <div style={{ color: 'var(--text-muted)' }}>{match.date}</div>
+              {/* +Markets link */}
+              <div
+                onClick={() => setActiveSection(`BetBuilder_${match.id}`)}
+                style={{
+                  flexShrink: 0,
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: 'var(--primary)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  paddingLeft: '8px',
+                  userSelect: 'none',
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+              >
+                +{marketsCount} Markets
+              </div>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

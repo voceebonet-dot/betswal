@@ -125,21 +125,17 @@ a { text-decoration: none; color: inherit; }
   background: var(--text-muted);
 }
 
-/* Match Row Hover */
+/* Match Row */
 .match-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.25rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 8px;
+  display: block;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.15s;
+  border-radius: 4px;
 }
 
 .match-row:hover {
-  background: rgba(255, 255, 255, 0.02);
-  transform: translateX(4px);
-  box-shadow: -4px 0 0 var(--primary);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 /* Animations */
