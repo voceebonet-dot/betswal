@@ -787,13 +787,13 @@ export const DepositPage = ({ setActiveSection }) => {
     setMsg('Processing...');
     const result = await deposit(parseFloat(amount));
     if (result.ok) { 
-      setMsg(result.pending ? 'Redirecting to payment gateway...' : 'Deposited!'); 
-      if (!result.pending) setAmount(''); 
+      setMsg(result.message || 'Check your phone for the M-Pesa prompt.'); 
+      setAmount(''); 
     }
-    else setMsg('Error: ' + result.error);
-    if (!result.pending) {
-      setTimeout(() => setMsg(''), 3000);
+    else {
+      setMsg('Error: ' + result.error);
     }
+    setTimeout(() => setMsg(''), 8000); // Give them time to read the STK push message
   };
   return (
     <div style={{ maxWidth: '480px', margin: '2rem auto' }}>

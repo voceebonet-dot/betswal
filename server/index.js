@@ -13,7 +13,9 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket, Kyc } = require('./db');
 const axios = require('axios');
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || 'sk_test_placeholder';
+const PAYHERO_AUTH_TOKEN = process.env.PAYHERO_AUTH_TOKEN || '';
+const PAYHERO_CHANNEL_ID = process.env.PAYHERO_CHANNEL_ID || '';
+const PAYHERO_CALLBACK_URL = process.env.PAYHERO_CALLBACK_URL || '';
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -1211,14 +1213,6 @@ app.get('/highlights',  (_, res) => res.json(highlightMatches));
 app.get('/jackpots',    (_, res) => res.json(jackpot));
 app.get('/aviator',     (_, res) => res.json({ phase: aviator.phase, multiplier: aviator.multiplier, history: aviator.history }));
 
-// Simulated deposit endpoint
-app.post('/api/deposit', (req, res) => {
-  const { amount, phone, method } = req.body;
-  if (!amount || amount <= 0) return res.status(400).json({ ok: false, error: 'Invalid amount' });
-  // Simulate M-Pesa STK push delay
-  setTimeout(() => {}, 2000);
-  res.json({ ok: true, ref: 'DEP-' + Date.now(), amount, method: method || 'M-Pesa', message: 'STK push sent to ' + phone });
-});
 
 app.post('/api/withdraw', (req, res) => {
   const { amount, phone } = req.body;
@@ -1378,55 +1372,78 @@ app.get('/api/user/me', async (req, res) => {
     res.status(500).json({ ok: false, error: 'Server error' });
   }
 });
-// Initiate real payment using Paystack
+// Initiate Payhero M-Pesa STK Push
 app.post('/api/deposit', async (req, res) => {
-  const { amount, phone, method } = req.body;
+  const { amount, phone } = req.body;
   if (!amount || amount <= 0) return res.status(400).json({ ok: false, error: 'Invalid amount' });
   
+  // Format phone number to start with 0 for Payhero (e.g. 07XXXXXXXX)
+  let formattedPhone = phone.trim().replace(/\s+/g, '');
+  if (formattedPhone.startsWith('+254')) formattedPhone = '0' + formattedPhone.substring(4);
+  if (formattedPhone.startsWith('254')) formattedPhone = '0' + formattedPhone.substring(3);
+  
+  const ref = `DEP-${Date.now()}`;
+
   try {
-    const response = await axios.post('https://api.paystack.co/transaction/initialize', {
-      email: `${phone.replace('+', '')}@betswal.com`, // Paystack requires email
-      amount: amount * 100, // in kobo/cents
-      callback_url: `http://localhost:5173/`,
-      metadata: { phone }
+    const response = await axios.post('https://app.payhero.co.ke/api/v2/payments', {
+      amount: amount,
+      phone_number: formattedPhone,
+      channel_id: parseInt(PAYHERO_CHANNEL_ID),
+      provider: 'm-pesa',
+      external_reference: ref,
+      callback_url: PAYHERO_CALLBACK_URL
     }, {
-      headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` }
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${PAYHERO_AUTH_TOKEN}` 
+      }
     });
 
-    if (response.data && response.data.status) {
-      return res.json({ ok: true, checkoutUrl: response.data.data.authorization_url, ref: response.data.data.reference });
+    if (response.data && response.data.success) {
+      return res.json({ ok: true, ref, message: 'Processing... Check your phone for the M-Pesa PIN prompt to complete your deposit.' });
     } else {
+      console.error("Payhero API Error:", response.data);
       return res.json({ ok: false, error: 'Payment gateway error' });
     }
   } catch(e) {
-    console.error("Paystack Initialize Error:", e.response?.data || e.message);
+    console.error("Payhero Initialize Error:", e.response?.data || e.message);
     return res.json({ ok: false, error: 'Failed to initialize payment' });
   }
 });
 
-// Paystack Webhook for successful deposits
-app.post('/api/paystack/webhook', express.json(), async (req, res) => {
+// Payhero Webhook for successful deposits
+app.post('/api/payhero/webhook', express.json(), async (req, res) => {
   const event = req.body;
-  if (event.event === 'charge.success') {
-    const amount = event.data.amount / 100;
-    const phone = event.data.metadata.phone;
-    const ref = event.data.reference;
+  
+  if (event.success && event.response && event.response.ResultCode === 0) {
+    const amount = event.response.Amount;
+    let phone = event.response.PhoneNumber ? event.response.PhoneNumber.toString() : '';
+    if (phone.startsWith('254')) phone = '+' + phone;
+    else if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
+    const ref = event.response.ExternalReference;
 
     try {
       const exists = await Transaction.findOne({ ref });
       if (exists) return res.sendStatus(200);
+      
+      let userQuery = { phone };
 
-      const prevUser = await User.findOne({ phone }).lean();
-      const wasFirstDeposit = !prevUser || prevUser.totalDeposited === 0;
+      const prevUser = await User.findOne(userQuery).lean();
+      if (!prevUser) {
+          console.log('Webhook user not found for phone', phone);
+          return res.sendStatus(200);
+      }
+
+      const wasFirstDeposit = prevUser.totalDeposited === 0;
 
       const depositUser = await User.findOneAndUpdate(
-        { phone },
+        userQuery,
         { $inc: { balance: amount, totalDeposited: amount } },
         { new: true }
       );
 
       if (depositUser) {
-        await Transaction.create({ userId: depositUser._id, phone, type: 'deposit', amount, ref });
+        await Transaction.create({ userId: depositUser._id, phone: depositUser.phone, type: 'deposit', amount, ref });
         
         if (wasFirstDeposit && depositUser.referredBy) {
           const referrer = await User.findOneAndUpdate(
@@ -1435,14 +1452,14 @@ app.post('/api/paystack/webhook', express.json(), async (req, res) => {
             { new: true }
           );
           if (referrer) {
-            await Transaction.create({ userId: referrer._id, phone: referrer.phone, type: 'referral_bonus', amount: 50, ref: `REF-${phone}` });
+            await Transaction.create({ userId: referrer._id, phone: referrer.phone, type: 'referral_bonus', amount: 50, ref: `REF-${depositUser.phone}` });
             io.emit('bonus_update_target', { userId: referrer._id.toString(), bonusBalance: referrer.bonusBalance });
             sendSMS(referrer.phone, `🎉 Your referral made their first deposit! KSh 50 bonus added to your account.`);
           }
         }
         
         io.emit('balance_update_target', { userId: depositUser._id.toString(), balance: depositUser.balance });
-        sendSMS(phone, `✅ Deposit of KSh ${amount} confirmed via Paystack. Balance: KSh ${depositUser.balance}.`);
+        sendSMS(depositUser.phone, `✅ Deposit of KSh ${amount} confirmed via Payhero. Balance: KSh ${depositUser.balance}.`);
       }
     } catch (err) { console.error('Webhook DB error:', err); }
   }

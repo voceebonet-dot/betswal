@@ -246,13 +246,8 @@ export const UserProvider = ({ children }) => {
       });
       const data = await res.json();
       if (data.ok) {
-        if (data.checkoutUrl) {
-          window.location.href = data.checkoutUrl;
-          return { ok: true, pending: true };
-        }
-        setWallet(prev => prev + amt);
-        setTransactions(prev => [{ type: 'deposit', amount: amt, date: new Date().toISOString(), ref: data.ref }, ...prev]);
-        return { ok: true };
+        // Balance will be updated automatically via webhook & websocket
+        return { ok: true, message: data.message };
       }
       return { ok: false, error: data.error };
     } catch (err) {
