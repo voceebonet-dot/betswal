@@ -1391,7 +1391,8 @@ app.post('/api/deposit', async (req, res) => {
       }
     });
 
-    if (response.data && response.data.success) {
+    console.log('Payhero Response:', JSON.stringify(response.data));
+    if (response.data && (response.data.success || response.data.status === 'queued' || response.data.status === 'pending')) {
       return res.json({ ok: true, ref, message: 'Processing... Check your phone for the M-Pesa PIN prompt to complete your deposit.' });
     } else {
       console.error("Payhero API Error:", response.data);
