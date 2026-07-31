@@ -235,14 +235,14 @@ export const UserProvider = ({ children }) => {
   }, [socket, user]);
 
   // ── Wallet ────────────────────────────────────────────────────────────────
-  const deposit = async (amount) => {
+  const deposit = async (amount, phone) => {
     const amt = parseFloat(amount);
     if (isNaN(amt) || amt <= 0) return { ok: false, error: 'Invalid amount' };
     try {
       const res = await fetch(`${API_URL}/deposit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: amt, phone: user?.phone })
+        body: JSON.stringify({ amount: amt, phone: phone || user?.phone })
       });
       const data = await res.json();
       if (data.ok) {

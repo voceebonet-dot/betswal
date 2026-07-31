@@ -746,8 +746,13 @@ export const AuthPage = ({ mode = 'login', setActiveSection }) => {
 export const DepositPage = ({ setActiveSection }) => {
   const { user, wallet, deposit, formatCurrency, country } = useUser();
   const [amount, setAmount] = React.useState('');
+  const [mpesaPhone, setMpesaPhone] = React.useState('');
   const [msg, setMsg] = React.useState('');
+  const [msgColor, setMsgColor] = React.useState('#28a745');
   const quickAmounts = [100, 250, 500, 1000, 2000, 5000];
+  React.useEffect(() => {
+    if (user?.phone) setMpesaPhone(user.phone.replace('+', ''));
+  }, [user]);
   if (!user) return (
     <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
       <div style={{ fontSize: '60px', marginBottom: '1rem' }}>🔐</div>
@@ -757,28 +762,33 @@ export const DepositPage = ({ setActiveSection }) => {
   );
   const handleDeposit = async () => {
     setMsg('Processing...');
-    const result = await deposit(parseFloat(amount));
+    setMsgColor('#fecd08');
+    const result = await deposit(parseFloat(amount), mpesaPhone);
     if (result.ok) { 
+      setMsgColor('#28a745');
       setMsg(result.message || 'Check your phone for the M-Pesa prompt.'); 
       setAmount(''); 
     }
     else {
+      setMsgColor('#dc3545');
       setMsg('Error: ' + result.error);
     }
-    setTimeout(() => setMsg(''), 8000); // Give them time to read the STK push message
+    setTimeout(() => setMsg(''), 8000);
   };
   return (
     <div style={{ maxWidth: '480px', margin: '2rem auto' }}>
       <h2 style={{ fontWeight: 800, fontSize: '22px', color: '#fff', marginBottom: '0.5rem' }}>💳 Deposit Funds</h2>
       <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '1.5rem' }}>Balance: <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{formatCurrency(wallet)}</span></p>
       <div className='glass-panel' style={{ padding: '1.5rem', borderRadius: '12px' }}>
+        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>M-Pesa Phone Number</label>
+        <input type='tel' className='glow-focus' value={mpesaPhone} onChange={e => setMpesaPhone(e.target.value)} placeholder='e.g. 0712345678' style={{ width: '100%', padding: '12px', backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '8px', outline: 'none', fontSize: '16px', marginBottom: '1rem' }} />
         <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Amount ({country.symbol})</label>
         <input type='number' min='10' className='glow-focus' value={amount} onChange={e => setAmount(e.target.value)} placeholder='Enter amount' style={{ width: '100%', padding: '12px', backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '8px', outline: 'none', fontSize: '16px', marginBottom: '1rem' }} />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '1.25rem' }}>
           {quickAmounts.map(a => <button key={a} className='btn' onClick={() => setAmount(a.toString())} style={{ backgroundColor: amount == a ? 'var(--primary)' : 'var(--bg-btn)', color: amount == a ? '#000' : 'var(--text-main)', fontWeight: 600 }}>{country.symbol}{a}</button>)}
         </div>
         <button className='btn btn-primary' style={{ width: '100%', padding: '14px', fontWeight: 800 }} onClick={handleDeposit}>Deposit Now</button>
-        {msg && <div style={{ marginTop: '1rem', textAlign: 'center', fontWeight: 600, color: '#28a745' }}>{msg}</div>}
+        {msg && <div style={{ marginTop: '1rem', textAlign: 'center', fontWeight: 600, color: msgColor }}>{msg}</div>}
       </div>
     </div>
   );
