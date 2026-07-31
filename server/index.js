@@ -1374,7 +1374,7 @@ app.post('/api/deposit', async (req, res) => {
   const ref = `DEP-${Date.now()}`;
 
   try {
-    const response = await axios.post('https://app.payhero.co.ke/api/v2/payments', {
+    const response = await axios.post('https://backend.payhero.co.ke/api/v2/payments/initiate-stk-push', {
       amount: amount,
       phone_number: formattedPhone,
       channel_id: parseInt(PAYHERO_CHANNEL_ID),
