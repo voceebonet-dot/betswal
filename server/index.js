@@ -1285,9 +1285,9 @@ app.post('/api/auth/send-otp', async (req, res) => {
 });
 
 app.post('/api/auth/register', async (req, res) => {
-  let { phone, password, name, countryId, referredBy, pinId, otpCode } = req.body;
-  if (!phone || !password || !pinId || !otpCode) {
-    return res.status(400).json({ ok: false, error: 'Phone, password, and OTP code are required' });
+  let { phone, password, name, countryId, referredBy } = req.body;
+  if (!phone || !password) {
+    return res.status(400).json({ ok: false, error: 'Phone and password are required' });
   }
 
   phone = phone.trim().replace(/\s+/g, '');
@@ -1298,20 +1298,7 @@ app.post('/api/auth/register', async (req, res) => {
     const existing = await User.findOne({ phone });
     if (existing) return res.status(400).json({ ok: false, error: 'User already exists' });
 
-    const response = await fetch(`https://l24nwj.api.infobip.com/2fa/2/pin/${pinId}/verify`, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'App 74b1997854051fea75fad51b36157edb-1b67fa54-aafd-4006-bfa1-00162551b18e',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ pin: otpCode })
-    });
-    
-    const data = await response.json();
-    if (!data.verified) {
-      return res.status(400).json({ ok: false, error: 'Invalid or expired OTP code' });
-    }
+
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const role = phone === ADMIN_PHONE ? 'admin' : 'user';

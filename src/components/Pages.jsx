@@ -649,29 +649,16 @@ export const AuthPage = ({ mode = 'login', setActiveSection }) => {
         setError(res?.error || 'Authentication failed.');
       }
     } else {
-      if (step === 'details') {
-        if (!phone.trim() || !password.trim()) { setError('Phone and password are required.'); return; }
-        if (!name.trim()) { setError('Full name is required.'); return; }
-        
-        setLoading(true);
-        const res = await requestOtp(phone.trim());
-        setLoading(false);
-        if (res && res.ok && res.pinId) {
-          setPinId(res.pinId);
-          setStep('otp');
-        } else {
-          setError(res?.error || 'Failed to send verification code.');
-        }
-      } else if (step === 'otp') {
-        if (!otpCode.trim()) { setError('Verification code is required.'); return; }
-        setLoading(true);
-        const res = await register(phone.trim(), password, name.trim(), country.id, referredBy.trim(), pinId, otpCode.trim());
-        setLoading(false);
-        if (res && res.ok) {
-          setActiveSection('Home');
-        } else {
-          setError(res?.error || 'Registration failed.');
-        }
+      if (!phone.trim() || !password.trim()) { setError('Phone and password are required.'); return; }
+      if (!name.trim()) { setError('Full name is required.'); return; }
+      
+      setLoading(true);
+      const res = await register(phone.trim(), password, name.trim(), country.id, referredBy.trim(), '', '');
+      setLoading(false);
+      if (res && res.ok) {
+        setActiveSection('Home');
+      } else {
+        setError(res?.error || 'Registration failed.');
       }
     }
   };
@@ -680,74 +667,59 @@ export const AuthPage = ({ mode = 'login', setActiveSection }) => {
       <h2 style={{ textAlign: 'center', fontWeight: 800, fontSize: '22px', marginBottom: '1.5rem' }}>
         {isLogin ? '🔐 Login' : '📝 Create Account'}
       </h2>
-      {(isLogin || step === 'details') ? (
+      {!isLogin && (
         <>
-          {!isLogin && (
-            <>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Country of Registration</label>
-                <div className="auth-input-container">
-                  <i>🌍</i>
-                  <select
-                    value={country.id}
-                    onChange={(e) => changeCountry(e.target.value)}
-                    className="glow-focus auth-input"
-                    style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', appearance: 'none' }}
-                  >
-                    {Object.values(COUNTRIES).map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.symbol})</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Full Name</label>
-                <div className="auth-input-container">
-                  <i>👤</i>
-                  <input type="text" className="glow-focus auth-input" placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
-                </div>
-              </div>
-            </>
-          )}
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Phone Number</label>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Country of Registration</label>
             <div className="auth-input-container">
-              <i>📱</i>
-              <input type="tel" className="glow-focus auth-input" placeholder="+254 7XX XXX XXX" value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
-            </div>
-          </div>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Password</label>
-            <div className="auth-input-container" style={{ position: 'relative' }}>
-              <i>🔒</i>
-              <input type={showPassword ? 'text' : 'password'} className="glow-focus auth-input" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', paddingRight: '40px' }} />
-              <div 
-                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', opacity: 0.7 }}
-                onClick={() => setShowPassword(!showPassword)}
+              <i>🌍</i>
+              <select
+                value={country.id}
+                onChange={(e) => changeCountry(e.target.value)}
+                className="glow-focus auth-input"
+                style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', appearance: 'none' }}
               >
-                {showPassword ? '🙈' : '👁️'}
-              </div>
+                {Object.values(COUNTRIES).map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.symbol})</option>
+                ))}
+              </select>
             </div>
           </div>
-          {!isLogin && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Referral Code (Optional)</label>
-              <div className="auth-input-container">
-                <i>🎁</i>
-                <input type="text" className="glow-focus auth-input" placeholder="e.g. BW-ABC123" value={referredBy} onChange={e => setReferredBy(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', textTransform: 'uppercase' }} />
-              </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Full Name</label>
+            <div className="auth-input-container">
+              <i>👤</i>
+              <input type="text" className="glow-focus auth-input" placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
             </div>
-          )}
+          </div>
         </>
-      ) : (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Enter SMS Code sent to {phone}</label>
-          <div className="auth-input-container">
-            <i>💬</i>
-            <input type="text" className="glow-focus auth-input" placeholder="123456" value={otpCode} onChange={e => setOtpCode(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', letterSpacing: '4px', textAlign: 'center', fontSize: '18px' }} maxLength={6} />
+      )}
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Phone Number</label>
+        <div className="auth-input-container">
+          <i>📱</i>
+          <input type="tel" className="glow-focus auth-input" placeholder="+254 7XX XXX XXX" value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s' }} />
+        </div>
+      </div>
+      <div style={{ marginBottom: '1.5rem' }}>
+        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Password</label>
+        <div className="auth-input-container" style={{ position: 'relative' }}>
+          <i>🔒</i>
+          <input type={showPassword ? 'text' : 'password'} className="glow-focus auth-input" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', paddingRight: '40px' }} />
+          <div 
+            style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', opacity: 0.7 }}
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? '🙈' : '👁️'}
           </div>
-          <div style={{ textAlign: 'center', marginTop: '10px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--primary)', cursor: 'pointer' }} onClick={() => setStep('details')}>Back to Details</span>
+        </div>
+      </div>
+      {!isLogin && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Referral Code (Optional)</label>
+          <div className="auth-input-container">
+            <i>🎁</i>
+            <input type="text" className="glow-focus auth-input" placeholder="e.g. BW-ABC123" value={referredBy} onChange={e => setReferredBy(e.target.value)} style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', textTransform: 'uppercase' }} />
           </div>
         </div>
       )}
@@ -757,7 +729,7 @@ export const AuthPage = ({ mode = 'login', setActiveSection }) => {
         </div>
       )}
       <button className="btn btn-primary pulse-btn" style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 800, borderRadius: '8px', marginTop: '0.5rem', opacity: loading ? 0.7 : 1 }} onClick={handleSubmit} disabled={loading}>
-        {loading ? '⏳ Please wait…' : isLogin ? 'Login' : step === 'otp' ? 'Verify & Register' : 'Create Account (Send SMS)'}
+        {loading ? '⏳ Please wait…' : isLogin ? 'Login' : 'Create Account'}
       </button>
       <div style={{ textAlign: 'center', marginTop: '1rem', fontSize: '13px', color: 'var(--text-muted)' }}>
         {isLogin ? "Don't have an account? " : 'Already have an account? '}
