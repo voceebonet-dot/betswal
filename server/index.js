@@ -1374,14 +1374,17 @@ app.post('/api/deposit', async (req, res) => {
   const ref = `DEP-${Date.now()}`;
 
   try {
-    const response = await axios.post('https://backend.payhero.co.ke/api/v2/payments', {
+    const payload = {
       amount: amount,
       phone_number: formattedPhone,
       channel_id: parseInt(PAYHERO_CHANNEL_ID),
       provider: 'm-pesa',
       external_reference: ref,
       callback_url: PAYHERO_CALLBACK_URL
-    }, {
+    };
+    console.log('Payhero Request:', JSON.stringify(payload));
+    console.log('Payhero Auth (first 20 chars):', PAYHERO_AUTH_TOKEN.substring(0, 20));
+    const response = await axios.post('https://backend.payhero.co.ke/api/v2/payments', payload, {
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Basic ${PAYHERO_AUTH_TOKEN}` 
