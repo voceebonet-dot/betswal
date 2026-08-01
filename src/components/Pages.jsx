@@ -744,7 +744,7 @@ export const AuthPage = ({ mode = 'login', setActiveSection }) => {
 
 // --- Deposit Page ---
 export const DepositPage = ({ setActiveSection }) => {
-  const { user, wallet, deposit, formatCurrency, country } = useUser();
+  const { user, wallet, deposit, formatCurrency, country, socket } = useUser();
   const [amount, setAmount] = React.useState('');
   const [mpesaPhone, setMpesaPhone] = React.useState('');
   const [msg, setMsg] = React.useState('');
@@ -753,6 +753,17 @@ export const DepositPage = ({ setActiveSection }) => {
   React.useEffect(() => {
     if (user?.phone) setMpesaPhone(user.phone.replace('+', ''));
   }, [user]);
+
+  React.useEffect(() => {
+    if (!socket || !user) return;
+    const onDepositSuccess = (data) => {
+      if (data.userId === user.userId) {
+        setActiveSection('Home');
+      }
+    };
+    socket.on('deposit_success', onDepositSuccess);
+    return () => socket.off('deposit_success', onDepositSuccess);
+  }, [socket, user, setActiveSection]);
   if (!user) return (
     <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
       <div style={{ fontSize: '60px', marginBottom: '1rem' }}>🔐</div>

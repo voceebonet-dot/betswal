@@ -1350,7 +1350,7 @@ app.post('/api/auth/register', async (req, res) => {
     });
     
     const token = signToken(user);
-    res.json({ ok: true, token, user: { phone: user.phone, name: user.name, role: user.role, balance: user.balance, bonusBalance: user.bonusBalance, countryId: user.countryId, referralCode: user.referralCode } });
+    res.json({ ok: true, token, user: { userId: user._id.toString(), phone: user.phone, name: user.name, role: user.role, balance: user.balance, bonusBalance: user.bonusBalance, countryId: user.countryId, referralCode: user.referralCode } });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ ok: false, error: 'Server error during registration' });
@@ -1379,7 +1379,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const token = signToken(user);
-    res.json({ ok: true, token, user: { phone: user.phone, name: user.name, role: user.role, balance: user.balance, bonusBalance: user.bonusBalance, countryId: user.countryId, referralCode: user.referralCode } });
+    res.json({ ok: true, token, user: { userId: user._id.toString(), phone: user.phone, name: user.name, role: user.role, balance: user.balance, bonusBalance: user.bonusBalance, countryId: user.countryId, referralCode: user.referralCode } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ ok: false, error: 'Server error during login' });
@@ -1395,7 +1395,7 @@ app.get('/api/user/me', async (req, res) => {
   try {
     const user = await User.findById(decoded.userId).lean();
     if (!user) return res.status(404).json({ ok: false, error: 'User not found' });
-    res.json({ ok: true, user: { phone: user.phone, name: user.name, role: user.role, balance: user.balance, countryId: user.countryId, totalWon: user.totalWon } });
+    res.json({ ok: true, user: { userId: user._id.toString(), phone: user.phone, name: user.name, role: user.role, balance: user.balance, countryId: user.countryId, totalWon: user.totalWon } });
   } catch (err) {
     res.status(500).json({ ok: false, error: 'Server error' });
   }
