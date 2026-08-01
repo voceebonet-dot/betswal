@@ -101,7 +101,7 @@ const Navbar = ({ activeSection, setActiveSection }) => {
                       { icon: '💸', label: 'Withdraw',        section: 'Withdraw' },
                       { icon: '🎟️', label: 'My Bets',        section: null, action: 'mybets' },
                       { icon: '🛡️', label: 'Responsible Play', section: 'Responsible' },
-                      ...(user.isAdmin ? [{ icon: '⚙️', label: 'Admin Panel', section: 'Admin' }] : []),
+                      ...(user.role === 'admin' ? [{ icon: '⚙️', label: 'Admin Panel', section: 'Admin' }] : []),
                     ].map(item => (
                       <div
                         key={item.label}

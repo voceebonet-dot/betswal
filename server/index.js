@@ -815,6 +815,19 @@ io.on('connection', (socket) => {
   });
 
   // ── Admin: Get Jackpot Tickets ───────────────────────────────────────
+  socket.on('admin_make_admin', async ({ userId }) => {
+    if (!socket.user || socket.user.role !== 'admin') return;
+    try {
+      const u = await User.findByIdAndUpdate(userId, { role: 'admin' }, { new: true });
+      if (u) {
+        socket.emit('admin_balance_updated', { phone: u.phone, balance: u.balance, reason: 'Promoted to Admin' }); // Reusing notification UI
+      }
+    } catch (err) {
+      console.error('Admin make admin error:', err);
+    }
+  });
+
+  // ── Admin: Get Jackpot Tickets ───────────────────────────────────────
   socket.on('admin_get_jackpot_tickets', async ({ jackpotKey } = {}) => {
     if (!socket.user || socket.user.role !== 'admin') return;
     try {

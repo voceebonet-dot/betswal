@@ -29,7 +29,7 @@ const AdminDashboard = () => {
   const [chatInput, setChatInput] = useState('');
   const [activeChatUser, setActiveChatUser] = useState(null);
 
-  if (!user?.isAdmin) {
+  if (user?.role !== 'admin') {
     return (
       <div className="glass-panel" style={{ textAlign: 'center', padding: '4rem 1rem', color: '#dc3545' }}>
         <h2>Unauthorized</h2>
@@ -102,6 +102,12 @@ const AdminDashboard = () => {
     if (!amt || isNaN(amt)) return;
     if (socket) socket.emit('admin_update_balance', { userId: u.id, amount: amt, reason: 'Admin adjustment' });
     setBalanceEdits(prev => ({ ...prev, [u.id]: '' }));
+  };
+
+  const handleMakeAdmin = (u) => {
+    if (window.confirm(`Are you sure you want to promote ${u.phone} to Admin?`)) {
+      if (socket) socket.emit('admin_make_admin', { userId: u.id });
+    }
   };
 
   const handleSettleJackpot = (ticketRef, status) => {
@@ -347,7 +353,7 @@ const AdminDashboard = () => {
                     <th style={{ padding: '10px', textAlign: 'right' }}>Balance</th>
                     <th style={{ padding: '10px', textAlign: 'right' }}>Total Won</th>
                     <th style={{ padding: '10px', textAlign: 'right' }}>Bets</th>
-                    <th style={{ padding: '10px', textAlign: 'center' }}>Adjust Balance</th>
+                    <th style={{ padding: '10px', textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -359,15 +365,20 @@ const AdminDashboard = () => {
                       <td style={{ padding: '10px', textAlign: 'right', color: '#86c439' }}>{formatCurrency(u.totalWon)}</td>
                       <td style={{ padding: '10px', textAlign: 'right' }}>{u.totalBets}</td>
                       <td style={{ padding: '10px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
-                          <input
-                            type="number"
-                            placeholder="±amount"
-                            value={balanceEdits[u.id] || ''}
-                            onChange={e => setBalanceEdits(prev => ({ ...prev, [u.id]: e.target.value }))}
-                            style={{ width: '90px', padding: '5px 8px', backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '4px', fontSize: '13px' }}
-                          />
-                          <button className="btn" style={{ padding: '5px 10px', backgroundColor: '#3498db', color: '#fff', fontSize: '12px', fontWeight: 700 }} onClick={() => handleUpdateBalance(u)}>Apply</button>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', gap: '2px' }}>
+                            <input
+                              type="number"
+                              placeholder="±amt"
+                              value={balanceEdits[u.id] || ''}
+                              onChange={e => setBalanceEdits(prev => ({ ...prev, [u.id]: e.target.value }))}
+                              style={{ width: '60px', padding: '5px 4px', backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '4px', fontSize: '12px' }}
+                            />
+                            <button className="btn" style={{ padding: '5px 8px', backgroundColor: '#3498db', color: '#fff', fontSize: '11px', fontWeight: 700 }} onClick={() => handleUpdateBalance(u)}>Apply</button>
+                          </div>
+                          {u.role !== 'admin' && (
+                            <button className="btn" style={{ padding: '5px 8px', backgroundColor: '#8e44ad', color: '#fff', fontSize: '11px', fontWeight: 700 }} onClick={() => handleMakeAdmin(u)}>Make Admin</button>
+                          )}
                         </div>
                       </td>
                     </tr>

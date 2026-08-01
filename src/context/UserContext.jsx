@@ -142,7 +142,7 @@ export const UserProvider = ({ children }) => {
 
   // Re-subscribe to admin stats on reload if user is admin
   useEffect(() => {
-    if (user?.isAdmin && socket) {
+    if (user?.role === 'admin' && socket) {
       socket.emit('admin_subscribe');
     }
   }, [user, socket]);
