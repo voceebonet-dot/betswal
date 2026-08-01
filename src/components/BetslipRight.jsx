@@ -348,6 +348,7 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
         )}
 
       </div>
+    </div>
     </>
   );
 };
