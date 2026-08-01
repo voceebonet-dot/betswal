@@ -23,7 +23,7 @@ const bcrypt = require('bcryptjs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'betswal-dev-secret-change-in-prod';
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '0000000000';
-const ODDS_API_KEY = process.env.ODDS_API_KEY || null;
+const FOOTBALL_DATA_API_KEY = process.env.FOOTBALL_DATA_API_KEY || null;
 
 const signToken = (user) => jwt.sign(
   { userId: user._id, phone: user.phone, role: user.role },
@@ -198,65 +198,57 @@ let lastOddsApiFetch = 0;
 const FETCH_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 const fetchRealSportsData = async () => {
-  if (!ODDS_API_KEY) return;
+  if (!FOOTBALL_DATA_API_KEY) return;
   try {
-    console.log('🔄 Fetching real sports data from The Odds API...');
-    // Fetch upcoming soccer matches
-    const res = await axios.get(`https://api.the-odds-api.com/v4/sports/soccer/odds`, {
-      params: {
-        apiKey: ODDS_API_KEY,
-        regions: 'eu',
-        markets: 'h2h',
-        oddsFormat: 'decimal',
-        dateFormat: 'iso'
-      }
+    console.log('🔄 Fetching real sports data from football-data.org...');
+    // Fetch matches for the next 10 days
+    const d1 = new Date();
+    const d2 = new Date();
+    d2.setDate(d2.getDate() + 10);
+    const dateFrom = d1.toISOString().split('T')[0];
+    const dateTo = d2.toISOString().split('T')[0];
+
+    const res = await axios.get(`https://api.football-data.org/v4/matches`, {
+      params: { dateFrom, dateTo },
+      headers: { 'X-Auth-Token': FOOTBALL_DATA_API_KEY }
     });
 
-    const matches = res.data;
+    const matches = res.data.matches;
     if (matches && matches.length > 0) {
       realSportsCache = matches.slice(0, 50).map((m, i) => {
-        // Find the first bookmaker odds for h2h
-        const h2hMarket = m.bookmakers?.[0]?.markets?.find(mk => mk.key === 'h2h');
-        const outcomes = h2hMarket?.outcomes || [];
-        
-        let odd1 = 1.0, oddX = 1.0, odd2 = 1.0;
-        if (outcomes.length >= 2) {
-          const homeOdd = outcomes.find(o => o.name === m.home_team)?.price || 2.0;
-          const awayOdd = outcomes.find(o => o.name === m.away_team)?.price || 2.0;
-          const drawOdd = outcomes.find(o => o.name.toLowerCase() === 'draw')?.price || 3.0;
-          odd1 = homeOdd;
-          oddX = drawOdd;
-          odd2 = awayOdd;
-        }
+        // football-data.org free tier doesn't provide odds, so we simulate realistic pre-match odds
+        const odd1 = parseFloat((Math.random() * 1.5 + 1.2).toFixed(2));
+        const oddX = parseFloat((Math.random() * 2 + 2.5).toFixed(2));
+        const odd2 = parseFloat((Math.random() * 3 + 1.8).toFixed(2));
 
         // Format date "DD/MM, HH:MM"
-        const d = new Date(m.commence_time);
+        const d = new Date(m.utcDate);
         const day = String(d.getDate()).padStart(2, '0');
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const hours = String(d.getHours()).padStart(2, '0');
         const mins = String(d.getMinutes()).padStart(2, '0');
 
         return {
-          id: 5000 + i, // offset ID so it doesn't conflict
+          id: m.id || (5000 + i), // use API id or offset ID
           sport: 'Soccer',
-          country: m.sport_title || 'World',
-          home: m.home_team,
-          away: m.away_team,
+          country: m.competition?.name || 'World',
+          home: m.homeTeam?.shortName || m.homeTeam?.name || 'Home',
+          away: m.awayTeam?.shortName || m.awayTeam?.name || 'Away',
           date: `${day}/${month}, ${hours}:${mins}`,
           timestamp: d.getTime(),
           odds: [odd1, oddX, odd2]
         };
       });
       lastOddsApiFetch = Date.now();
-      console.log(`✅ Cached ${realSportsCache.length} real matches.`);
+      console.log(`✅ Cached ${realSportsCache.length} real matches from football-data.org.`);
     }
   } catch (err) {
-    console.error('❌ Error fetching from The Odds API:', err.response?.data || err.message);
+    console.error('❌ Error fetching from football-data.org:', err.response?.data || err.message);
   }
 };
 
 // Initial fetch if key exists
-if (ODDS_API_KEY) {
+if (FOOTBALL_DATA_API_KEY) {
   fetchRealSportsData();
   setInterval(fetchRealSportsData, FETCH_INTERVAL_MS);
 }
@@ -424,7 +416,7 @@ setInterval(() => {
 // TICK: HIGHLIGHT ODDS — gentle drift every 8 seconds
 // ─────────────────────────────────────────────────────────────────
 setInterval(() => {
-  const baseData = (ODDS_API_KEY && realSportsCache.length > 0) ? realSportsCache : highlightMatches;
+  const baseData = (FOOTBALL_DATA_API_KEY && realSportsCache.length > 0) ? realSportsCache : highlightMatches;
   
   // Filter for current and future games (started less than 2 hours ago)
   const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
@@ -875,7 +867,7 @@ io.on('connection', (socket) => {
     }
     
     // Validate against server's source of truth for matches
-    const baseData = (ODDS_API_KEY && realSportsCache.length > 0) ? realSportsCache : highlightMatches;
+    const baseData = (FOOTBALL_DATA_API_KEY && realSportsCache.length > 0) ? realSportsCache : highlightMatches;
     
     for (let b of bets) {
       if (!b || typeof b.odds !== 'number' || b.odds < 1.01) {
