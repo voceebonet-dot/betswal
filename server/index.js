@@ -1448,9 +1448,10 @@ app.post('/api/payhero/webhook', express.json(), async (req, res) => {
   const event = req.body;
   console.log("Payhero Webhook Received:", JSON.stringify(event));
   
-  if (event.success && event.response && event.response.ResultCode === 0) {
+  const isSuccess = event.success || event.status;
+  if (isSuccess && event.response && event.response.ResultCode === 0) {
     const amount = event.response.Amount;
-    let phone = event.response.PhoneNumber ? event.response.PhoneNumber.toString() : '';
+    let phone = (event.response.Phone || event.response.PhoneNumber || '').toString();
     if (phone.startsWith('254')) phone = '+' + phone;
     else if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
     const ref = event.response.ExternalReference;
