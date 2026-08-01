@@ -15,6 +15,18 @@ const OddsBtn = ({ odd, prevOdd, selected, onClick, label }) => {
     : direction === 'down' ? '1px solid rgba(220,53,69,0.5)'
     : '1px solid rgba(255,255,255,0.07)';
 
+  // Temporary flash effect on change
+  const [flash, setFlash] = React.useState(null);
+  React.useEffect(() => {
+    if (direction) {
+      setFlash(direction);
+      const t = setTimeout(() => setFlash(null), 1000);
+      return () => clearTimeout(t);
+    }
+  }, [odd, direction]);
+
+  const flashBg = flash === 'up' ? 'rgba(40,167,69,0.3)' : flash === 'down' ? 'rgba(220,53,69,0.3)' : 'transparent';
+
   return (
     <button
       className="odds-btn"
@@ -27,10 +39,12 @@ const OddsBtn = ({ odd, prevOdd, selected, onClick, label }) => {
         transition: 'all 0.25s ease',
         minWidth: '78px',
         borderRadius: '10px',
-        boxShadow: selected ? '0 4px 14px rgba(134,196,57,0.35)' : '0 2px 6px rgba(0,0,0,0.2)',
+        boxShadow: selected ? '0 4px 14px rgba(134,196,57,0.35)' : flash ? `0 0 12px ${flash === 'up' ? '#28a745' : '#dc3545'}` : '0 2px 6px rgba(0,0,0,0.2)',
         transform: selected ? 'translateY(-1px)' : 'none',
+        overflow: 'hidden',
       }}
     >
+      <div style={{ position: 'absolute', inset: 0, background: flashBg, transition: 'background 0.5s', pointerEvents: 'none', mixBlendMode: 'screen' }} />
       <span style={{
         fontSize: '10px',
         color: selected ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.4)',

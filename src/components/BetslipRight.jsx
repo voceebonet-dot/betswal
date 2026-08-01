@@ -11,6 +11,7 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
   const [message, setMessage]     = useState('');
   const [shareCode, setShareCode] = useState('');
   const [msgType, setMsgType]     = useState('info'); // 'success' | 'error' | 'info'
+  const [confirmPending, setConfirmPending] = useState(false); // confirm modal
 
   const totalOdds   = bets.reduce((acc, b) => acc * b.odds, 1).toFixed(2);
   const possibleWin = (totalOdds * stake).toFixed(2);
@@ -57,6 +58,13 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
     if (!bets.length || !socket) return;
     const stakeNum = parseFloat(stake);
     if (isNaN(stakeNum) || stakeNum <= 0) { flash('❌ Enter a valid stake.', 'error'); return; }
+    // Show confirmation modal instead of placing directly
+    setConfirmPending(true);
+  };
+
+  const confirmPlaceBet = () => {
+    setConfirmPending(false);
+    const stakeNum = parseFloat(stake);
     if (useBonus) {
       if (stakeNum > (user.bonusBalance || 0)) { flash(`❌ Insufficient bonus balance. Available: ${country.symbol} ${user.bonusBalance || 0}`, 'error'); return; }
     } else {
@@ -67,7 +75,7 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
     socket.emit('place_bet', { bets, stake: stakeNum, useBonus });
     socket.once('bet_confirmed', ({ ticketRef, totalOdds: to, possibleWin: pw }) => {
       addBetToHistory(ticketRef, bets, to, stake, pw);
-      flash(`🏟️ Bet placed! Ref: ${ticketRef} | Win: ${country.symbol} ${pw}`, 'success');
+      flash(`🏙️ Bet placed! Ref: ${ticketRef} | Win: ${country.symbol} ${pw}`, 'success');
       clearBets();
       setActiveTab('My Bets');
     });
@@ -75,17 +83,51 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
 
   const msgColor = msgType === 'success' ? '#86c439' : msgType === 'error' ? '#dc3545' : '#fecd08';
 
+  // Confirm modal overlay
+  const ConfirmModal = () => (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: 'linear-gradient(135deg, #0d1621, #141f2e)', border: '1px solid rgba(134,196,57,0.3)', borderRadius: '16px', padding: '1.75rem', maxWidth: '340px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '40px', marginBottom: '8px' }}>🏙️</div>
+          <div style={{ fontWeight: 800, fontSize: '18px', color: '#fff', marginBottom: '4px' }}>Confirm Your Bet</div>
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>{bets.length} selection{bets.length > 1 ? 's' : ''}</div>
+        </div>
+        <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '12px', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>Stake</span>
+            <span style={{ fontWeight: 800, color: '#fff' }}>{country.symbol} {parseFloat(stake).toLocaleString()}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>Total Odds</span>
+            <span style={{ fontWeight: 800, color: '#fecd08' }}>{totalOdds}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '8px', marginTop: '4px' }}>
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>Possible Win</span>
+            <span style={{ fontWeight: 900, fontSize: '18px', color: '#86c439', textShadow: '0 0 10px rgba(134,196,57,0.5)' }}>{country.symbol} {possibleWin}</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={() => setConfirmPending(false)} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '14px' }}>Cancel</button>
+          <button onClick={confirmPlaceBet} style={{ flex: 2, padding: '12px', background: 'linear-gradient(135deg, #9ae640, #5a9e27)', border: 'none', color: '#000', borderRadius: '10px', cursor: 'pointer', fontWeight: 900, fontSize: '14px', boxShadow: '0 4px 16px rgba(134,196,57,0.4)' }}>✅ Confirm Bet</button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{
-      background: 'rgba(13, 22, 33, 0.85)',
-      backdropFilter: 'blur(16px)',
-      WebkitBackdropFilter: 'blur(16px)',
-      border: '1px solid rgba(255,255,255,0.07)',
-      borderRadius: '14px',
-      overflowY: 'auto',
-      maxHeight: 'calc(100vh - 100px)',
-      boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
-    }}>
+    <>
+      {confirmPending && <ConfirmModal />}
+      <div style={{
+        background: 'rgba(13, 22, 33, 0.85)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        borderRadius: '14px',
+        overflowY: 'auto',
+        maxHeight: 'calc(100vh - 100px)',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+      }}>
+
 
       {/* Header */}
       <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(135deg, rgba(134,196,57,0.08), rgba(254,205,8,0.04))' }}>
@@ -295,8 +337,8 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
                       {bet.bets.length} selection{bet.bets.length > 1 ? 's' : ''} · Odds: <span style={{ color: '#fecd08', fontWeight: 700 }}>{bet.totalOdds}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)' }}>Stake: {country.symbol} {bet.stake}</span>
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#86c439' }}>Win: {country.symbol} {bet.possibleWin}</span>
+                      <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)' }}>Stake: {formatCurrency(parseFloat(bet.stake))}</span>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#86c439' }}>Win: {formatCurrency(parseFloat(bet.possibleWin))}</span>
                     </div>
                   </div>
                 );
@@ -306,7 +348,7 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
         )}
 
       </div>
-    </div>
+    </>
   );
 };
 

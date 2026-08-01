@@ -679,9 +679,12 @@ export const AuthPage = ({ mode = 'login', setActiveSection }) => {
                 className="glow-focus auth-input"
                 style={{ width: '100%', padding: '10px', backgroundColor: 'var(--bg-btn)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '6px', outline: 'none', transition: 'all 0.2s', appearance: 'none' }}
               >
-                {Object.values(COUNTRIES).map(c => (
-                  <option key={c.id} value={c.id}>{c.name} ({c.symbol})</option>
-                ))}
+                {Object.values(COUNTRIES).map(c => {
+                  const flags = { KE:'🇰🇪', NG:'🇳🇬', GH:'🇬🇭', ZA:'🇿🇦', UG:'🇺🇬', TZ:'🇹🇿', MW:'🇲🇼', ZW:'🇿🇼', ZM:'🇿🇲', BW:'🇧🇼', ET:'🇪🇹' };
+                  return (
+                    <option key={c.id} value={c.id}>{flags[c.id] || '🌍'} {c.name} ({c.symbol})</option>
+                  );
+                })}
               </select>
             </div>
           </div>
@@ -807,9 +810,10 @@ export const DepositPage = ({ setActiveSection }) => {
 
 // --- Withdraw Page ---
 export const WithdrawPage = ({ setActiveSection }) => {
-  const { user, wallet, withdraw, formatCurrency, country } = useUser();
+  const { user, wallet, withdraw, formatCurrency, country, getLocalMinStake } = useUser();
   const [amount, setAmount] = React.useState('');
   const [msg, setMsg] = React.useState('');
+  const [msgType, setMsgType] = React.useState('error');
   if (!user) return (
     <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
       <div style={{ fontSize: '60px', marginBottom: '1rem' }}>🔐</div>
@@ -817,24 +821,49 @@ export const WithdrawPage = ({ setActiveSection }) => {
       <button className='btn btn-primary' onClick={() => setActiveSection('Login')}>Login Now</button>
     </div>
   );
+  const localMin = getLocalMinStake(100); // min withdrawal = KSh 100 equiv
+  const localMax = Math.floor(wallet);    // max = full balance
   const handleWithdraw = () => {
-    const result = withdraw(parseFloat(amount));
-    if (result.ok) { 
-      setMsg(result.pending ? 'Request sent to admin for approval!' : 'Withdrawal processed!'); 
-      setAmount(''); 
+    const amt = parseFloat(amount);
+    if (isNaN(amt) || amt < localMin) { setMsg(`Minimum withdrawal is ${country.symbol} ${localMin}`); setMsgType('error'); setTimeout(() => setMsg(''), 4000); return; }
+    if (amt > localMax) { setMsg('Amount exceeds your available balance.'); setMsgType('error'); setTimeout(() => setMsg(''), 4000); return; }
+    const result = withdraw(amt);
+    if (result.ok) {
+      setMsg(result.pending ? '✅ Request sent to admin for approval!' : '✅ Withdrawal processed!');
+      setMsgType('success');
+      setAmount('');
+    } else {
+      setMsg('❌ Error: ' + result.error);
+      setMsgType('error');
     }
-    else setMsg('Error: ' + result.error);
-    setTimeout(() => setMsg(''), 4000);
+    setTimeout(() => setMsg(''), 5000);
   };
   return (
     <div style={{ maxWidth: '480px', margin: '2rem auto' }}>
       <h2 style={{ fontWeight: 800, fontSize: '22px', color: '#fff', marginBottom: '0.5rem' }}>💸 Withdraw Funds</h2>
       <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '1.5rem' }}>Available: <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{formatCurrency(wallet)}</span></p>
       <div className='glass-panel' style={{ padding: '1.5rem', borderRadius: '12px' }}>
+        {/* Limits info */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '8px', padding: '10px 14px', marginBottom: '1.25rem' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.5px', marginBottom: '3px' }}>MIN WITHDRAWAL</div>
+            <div style={{ fontWeight: 800, color: '#fecd08', fontSize: '15px' }}>{country.symbol} {localMin}</div>
+          </div>
+          <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)' }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.5px', marginBottom: '3px' }}>MAX WITHDRAWAL</div>
+            <div style={{ fontWeight: 800, color: '#86c439', fontSize: '15px' }}>{country.symbol} {localMax.toLocaleString()}</div>
+          </div>
+          <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)' }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.5px', marginBottom: '3px' }}>PROCESSING</div>
+            <div style={{ fontWeight: 800, color: '#fff', fontSize: '15px' }}>24h</div>
+          </div>
+        </div>
         <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Amount ({country.symbol})</label>
-        <input type='number' min='10' className='glow-focus' value={amount} onChange={e => setAmount(e.target.value)} placeholder='Enter amount' style={{ width: '100%', padding: '12px', backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '8px', outline: 'none', fontSize: '16px', marginBottom: '1.25rem' }} />
-        <button className='btn' style={{ width: '100%', padding: '14px', fontWeight: 800, backgroundColor: '#dc3545', color: '#fff' }} onClick={handleWithdraw}>Withdraw</button>
-        {msg && <div style={{ marginTop: '1rem', textAlign: 'center', fontWeight: 600 }}>{msg}</div>}
+        <input type='number' min={localMin} max={localMax} className='glow-focus' value={amount} onChange={e => setAmount(e.target.value)} placeholder={`Min: ${country.symbol} ${localMin}`} style={{ width: '100%', padding: '12px', backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-color)', color: '#fff', borderRadius: '8px', outline: 'none', fontSize: '16px', marginBottom: '1.25rem', boxSizing: 'border-box' }} />
+        <button className='btn' style={{ width: '100%', padding: '14px', fontWeight: 800, backgroundColor: parseFloat(amount) >= localMin ? '#dc3545' : 'rgba(220,53,69,0.4)', color: '#fff', cursor: parseFloat(amount) >= localMin ? 'pointer' : 'not-allowed' }} onClick={handleWithdraw} disabled={parseFloat(amount) < localMin}>Withdraw</button>
+        {msg && <div style={{ marginTop: '1rem', textAlign: 'center', fontWeight: 600, color: msgType === 'success' ? '#86c439' : '#ff4757', padding: '10px', background: msgType === 'success' ? 'rgba(134,196,57,0.1)' : 'rgba(255,71,87,0.1)', borderRadius: '8px', border: `1px solid ${msgType === 'success' ? 'rgba(134,196,57,0.3)' : 'rgba(255,71,87,0.3)'}` }}>{msg}</div>}
       </div>
     </div>
   );

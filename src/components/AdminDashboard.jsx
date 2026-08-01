@@ -14,6 +14,8 @@ const AdminDashboard = () => {
   const [promoMessage, setPromoMessage] = useState('');
   const [jackpotTarget, setJackpotTarget] = useState(jackpotPool?.target || 5000000);
   const [jackpotCurrent, setJackpotCurrent] = useState(jackpotPool?.current || 2340000);
+  const [betSearch, setBetSearch] = useState('');
+  const [betStatusFilter, setBetStatusFilter] = useState('All');
 
   // Users tab state
   const [users, setUsers] = useState([]);
@@ -198,26 +200,50 @@ const AdminDashboard = () => {
       {/* ── BETS TAB ── */}
       {activeTab === 'Bets' && (
         <div className="glass-panel" style={{ padding: '1.5rem' }}>
-          <h3 style={{ marginBottom: '1rem' }}>🎯 Live Bets Log</h3>
-          {stats.betsLog && stats.betsLog.length > 0 ? (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, flex: 1 }}>🎯 Live Bets Log</h3>
+            <input
+              type="text"
+              placeholder="Search ticket ref or phone..."
+              value={betSearch}
+              onChange={e => setBetSearch(e.target.value)}
+              style={{ padding: '7px 12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', borderRadius: '8px', outline: 'none', fontSize: '13px', width: '220px' }}
+            />
+            {['All','Pending','Won','Lost'].map(s => (
+              <button key={s} onClick={() => setBetStatusFilter(s)}
+                style={{ padding: '6px 12px', borderRadius: '7px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, background: betStatusFilter === s ? 'var(--primary)' : 'rgba(255,255,255,0.07)', color: betStatusFilter === s ? '#000' : 'rgba(255,255,255,0.5)', transition: 'all 0.2s' }}>
+                {s}
+              </button>
+            ))}
+          </div>
+          {stats.betsLog && stats.betsLog.length > 0 ? (() => {
+            const filtered = stats.betsLog.filter(b => {
+              const matchSearch = !betSearch || (b.ticketRef || '').toLowerCase().includes(betSearch.toLowerCase()) || (b.phone || '').includes(betSearch);
+              const matchStatus = betStatusFilter === 'All' || b.status === betStatusFilter;
+              return matchSearch && matchStatus;
+            });
+            return filtered.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px' }}>{filtered.length} of {stats.betsLog.length} bets</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left', color: 'var(--text-muted)' }}>
                     <th style={{ padding: '10px' }}>Time</th>
                     <th style={{ padding: '10px' }}>Ticket Ref</th>
+                    <th style={{ padding: '10px' }}>Phone</th>
                     <th style={{ padding: '10px', textAlign: 'right' }}>Stake</th>
                     <th style={{ padding: '10px', textAlign: 'right' }}>Potential Win</th>
                     <th style={{ padding: '10px', textAlign: 'center' }}>Settle</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {stats.betsLog.map((bet, i) => {
+                  {filtered.map((bet, i) => {
                     const isBigWin = parseFloat(bet.possibleWin) > parseFloat(bet.stake) * 10;
                     return (
                       <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', backgroundColor: i % 2 === 0 ? 'rgba(0,0,0,0.2)' : 'transparent' }}>
-                        <td style={{ padding: '10px', color: 'var(--text-muted)' }}>{new Date(bet.time).toLocaleTimeString()}</td>
-                        <td style={{ padding: '10px', fontFamily: 'monospace', color: '#fecd08' }}>{bet.ticketRef}</td>
+                        <td style={{ padding: '10px', color: 'var(--text-muted)', fontSize: '12px' }}>{new Date(bet.time).toLocaleTimeString()}</td>
+                        <td style={{ padding: '10px', fontFamily: 'monospace', color: '#fecd08', fontSize: '12px' }}>{bet.ticketRef}</td>
+                        <td style={{ padding: '10px', color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>{bet.phone || '—'}</td>
                         <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600 }}>{formatCurrency(bet.stake)}</td>
                         <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600, color: isBigWin ? '#86c439' : 'var(--text-main)' }}>
                           {formatCurrency(bet.possibleWin)}{isBigWin && <span style={{ marginLeft: '5px' }}>🚀</span>}
@@ -238,7 +264,10 @@ const AdminDashboard = () => {
                 </tbody>
               </table>
             </div>
-          ) : (
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No bets match your filter.</div>
+                );
+          })() : (
             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No bets yet.</div>
           )}
         </div>

@@ -16,9 +16,22 @@ function AppInner() {
   const [activeSection, setActiveSection] = useState('Home');
   const [activeSport, setActiveSport] = useState('Soccer');
   const [activeJackpot, setActiveJackpot] = useState(null);
-  const { virtualSports } = useSocket();
+  const { virtualSports, socket } = useSocket();
   const { setMyBets, myBets, user, isExcluded } = useUser();
   const prevBetStatuses = useRef({});
+  const [appReady, setAppReady] = useState(false);
+
+  // Mark app as ready once socket connects (or after 2s timeout)
+  React.useEffect(() => {
+    if (socket) {
+      const onConnect = () => setAppReady(true);
+      if (socket.connected) { setAppReady(true); return; }
+      socket.once('connect', onConnect);
+      return () => socket.off('connect', onConnect);
+    }
+    const t = setTimeout(() => setAppReady(true), 2000);
+    return () => clearTimeout(t);
+  }, [socket]);
 
   // ── Push Notifications: request permission on first login ──────────────
   useEffect(() => {
@@ -108,6 +121,23 @@ function AppInner() {
 
   return (
     <>
+      {!appReady && (
+        <div style={{ position: 'fixed', inset: 0, background: '#0d1117', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
+          {/* Logo */}
+          <img src="/starbet_logo.svg" alt="BetsWal" style={{ width: '80px', height: '80px', filter: 'drop-shadow(0 0 20px rgba(134,196,57,0.6))', animation: 'pulse 1.2s ease-in-out infinite' }} />
+          {/* Skeleton bars */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '260px' }}>
+            {[100, 80, 60].map((w, i) => (
+              <div key={i} style={{ height: '12px', borderRadius: '6px', background: 'linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 75%)', backgroundSize: '200% 100%', animation: `shimmer 1.5s infinite ${i * 0.15}s`, width: `${w}%` }} />
+            ))}
+          </div>
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.25)', letterSpacing: '1px' }}>LOADING...</div>
+          <style>{`
+            @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+            @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.7;transform:scale(0.95)} }
+          `}</style>
+        </div>
+      )}
       <Navbar activeSection={activeSection} setActiveSection={setActiveSection} bets={bets} />
 
       {isSportsLayout ? (

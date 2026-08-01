@@ -1,21 +1,38 @@
 {
   "name": "BetsWal Sports & Casino",
   "short_name": "BetsWal",
-  "description": "Premium Sports Betting & Casino",
+  "description": "Premium Sports Betting & Aviator in Africa",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0d1117",
   "theme_color": "#86c439",
+  "categories": ["sports", "entertainment", "games"],
+  "lang": "en",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>",
-      "sizes": "192x192",
-      "type": "image/svg+xml"
+      "src": "/starbet_logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>",
+      "src": "/starbet_logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/starbet_logo.png",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/png"
     }
-  ]
+  ],
+  "shortcuts": [
+    { "name": "Play Aviator", "url": "/?section=Aviator", "icons": [{ "src": "/starbet_logo.svg", "sizes": "any" }] },
+    { "name": "My Account", "url": "/?section=Account", "icons": [{ "src": "/starbet_logo.svg", "sizes": "any" }] },
+    { "name": "Deposit", "url": "/?section=Deposit", "icons": [{ "src": "/starbet_logo.svg", "sizes": "any" }] }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
 }

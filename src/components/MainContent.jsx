@@ -9,6 +9,7 @@ import {
 } from './Pages';
 import AdminDashboard from './AdminDashboard';
 import { BetBuilder } from './BetBuilder';
+import NotFound from './NotFound';
 
 import OddsBtn from './OddsBtn';
 
@@ -507,17 +508,20 @@ const MainContent = ({ activeSport, bets, toggleBet, activeSection, setActiveSec
         const matchId = activeSection.replace('BetBuilder_', '');
         return <BetBuilder matchId={matchId} bets={bets} toggleBet={toggleBet} setActiveSection={setActiveSection} />;
       }
-      // Sports layout sections all share the SportsContent sub-router
-      return (
-        <SportsContent
-          activeSport={activeSport}
-          bets={bets}
-          toggleBet={toggleBet}
-          activeSection={activeSection}
-          setActiveSection={setActiveSection}
-          setActiveJackpot={setActiveJackpot}
-        />
-      );
+      // Sports layout sections share the SportsContent sub-router
+      if (['Home','Live','Jackpots','Shikisha Bet','Aviator','Ligi Bigi','Virtuals','BetsWal Fasta','Betika Fasta','Crash Games','Upcoming','Countries'].some(s => activeSection === s || activeSection.startsWith(s))) {
+        return (
+          <SportsContent
+            activeSport={activeSport}
+            bets={bets}
+            toggleBet={toggleBet}
+            activeSection={activeSection}
+            setActiveSection={setActiveSection}
+            setActiveJackpot={setActiveJackpot}
+          />
+        );
+      }
+      return <NotFound setActiveSection={setActiveSection} />;
   }
 };
 

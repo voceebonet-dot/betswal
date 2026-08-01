@@ -112,6 +112,11 @@ export const LiveChat = () => {
                   }}>
                     {msg.text}
                   </div>
+                  {msg.time && (
+                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.25)', marginTop: '2px', marginLeft: '4px', marginRight: '4px' }}>
+                      {new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
                 </div>
               );
             })}
