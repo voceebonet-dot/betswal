@@ -497,13 +497,14 @@ const CountdownRing = ({ countdown, max = 10 }) => {
 
 // ─── Bet Slot (Manual / Auto tabs) ───────────────────────────────────────────
 const BetSlot = ({ socket, phase, multiplier, label, country }) => {
-  const { user } = useUser();
+  const { user, getLocalMinStake } = useUser();
+  const localMinAviator = getLocalMinStake(10); // KSh 10 base for Aviator
   const [mode,        setMode]        = useState('manual');
-  const [stake,       setStake]       = useState(Math.round(50 * country.rate));
+  const [stake,       setStake]       = useState(localMinAviator);
   const [autoCashout, setAutoCashout] = useState('2.00');
 
   useEffect(() => {
-    setStake(Math.round(50 * country.rate));
+    setStake(getLocalMinStake(10));
   }, [country.rate]);
   const [betPlaced,   setBetPlaced]   = useState(false);
   const [cashedOut,   setCashedOut]   = useState(null);
@@ -590,9 +591,9 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
           );
         })}
       </div>
-      {parseFloat(stake) < 10 && !betPlaced && (
+      {parseFloat(stake) < localMinAviator && !betPlaced && (
         <div style={{ fontSize: '11px', color: '#ff4757', marginBottom: '8px', textAlign: 'center', fontWeight: 700 }}>
-          Minimum stake is {country.symbol}10
+          Minimum stake is {country.symbol}{localMinAviator}
         </div>
       )}
 
@@ -626,13 +627,13 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
 
       {/* Action Button */}
       {canBet && (
-        <button onClick={handleBet} disabled={parseFloat(stake) < 10} style={{ width: '100%', background: parseFloat(stake) < 10 ? 'rgba(255,255,255,0.07)' : 'linear-gradient(135deg, #9ae640, #5a9e27)', color: parseFloat(stake) < 10 ? 'rgba(255,255,255,0.3)' : '#000', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 900, fontSize: '15px', cursor: parseFloat(stake) < 10 ? 'not-allowed' : 'pointer', letterSpacing: '0.5px', boxShadow: parseFloat(stake) < 10 ? 'none' : '0 6px 20px rgba(134,196,57,0.4), inset 0 1px 1px rgba(255,255,255,0.4)', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
-          onMouseOver={e => { if (parseFloat(stake) >= 10) { e.currentTarget.style.boxShadow = '0 8px 25px rgba(134,196,57,0.6), inset 0 1px 1px rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}}
-          onMouseOut={e => { e.currentTarget.style.boxShadow = parseFloat(stake) < 10 ? 'none' : '0 6px 20px rgba(134,196,57,0.4), inset 0 1px 1px rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-          onMouseDown={e => { if (parseFloat(stake) >= 10) { e.currentTarget.style.transform = 'translateY(1px)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(134,196,57,0.4)'; }}}
-          onMouseUp={e => { if (parseFloat(stake) >= 10) { e.currentTarget.style.transform = 'translateY(-2px)'; }}}
+        <button onClick={handleBet} disabled={parseFloat(stake) < localMinAviator} style={{ width: '100%', background: parseFloat(stake) < localMinAviator ? 'rgba(255,255,255,0.07)' : 'linear-gradient(135deg, #9ae640, #5a9e27)', color: parseFloat(stake) < localMinAviator ? 'rgba(255,255,255,0.3)' : '#000', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 900, fontSize: '15px', cursor: parseFloat(stake) < localMinAviator ? 'not-allowed' : 'pointer', letterSpacing: '0.5px', boxShadow: parseFloat(stake) < localMinAviator ? 'none' : '0 6px 20px rgba(134,196,57,0.4), inset 0 1px 1px rgba(255,255,255,0.4)', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
+          onMouseOver={e => { if (parseFloat(stake) >= localMinAviator) { e.currentTarget.style.boxShadow = '0 8px 25px rgba(134,196,57,0.6), inset 0 1px 1px rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}}
+          onMouseOut={e => { e.currentTarget.style.boxShadow = parseFloat(stake) < localMinAviator ? 'none' : '0 6px 20px rgba(134,196,57,0.4), inset 0 1px 1px rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+          onMouseDown={e => { if (parseFloat(stake) >= localMinAviator) { e.currentTarget.style.transform = 'translateY(1px)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(134,196,57,0.4)'; }}}
+          onMouseUp={e => { if (parseFloat(stake) >= localMinAviator) { e.currentTarget.style.transform = 'translateY(-2px)'; }}}
         >
-          {parseFloat(stake) < 10 ? `Min ${country.symbol}10` : <>BET <span style={{ fontSize: '16px' }}>{country.symbol}{stake}</span></>}
+          {parseFloat(stake) < localMinAviator ? `Min ${country.symbol}${localMinAviator}` : <>BET <span style={{ fontSize: '16px' }}>{country.symbol}{stake}</span></>}
         </button>
       )}
       {betPlaced && phase === 'betting' && (

@@ -33,6 +33,17 @@ export const UserProvider = ({ children }) => {
     return `${country.symbol} ${localAmount.toLocaleString('en-US', { maximumFractionDigits: maxFractionDigits })}`;
   };
 
+  // Round a KSh base amount to the nearest clean local denomination
+  // e.g. KSh 50 @ 11.5x (NGN) = 575 → rounds to 600
+  const getLocalMinStake = (kshBase) => {
+    const raw = kshBase * country.rate;
+    if (raw < 5)   return Math.ceil(raw);       // sub-5: exact
+    if (raw < 50)  return Math.round(raw / 5)  * 5;   // 5-49: round to 5
+    if (raw < 500) return Math.round(raw / 10) * 10;  // 50-499: round to 10
+    if (raw < 5000) return Math.round(raw / 50) * 50; // 500-4999: round to 50
+    return Math.round(raw / 100) * 100;               // 5000+: round to 100
+  };
+
   // ── User Session ─────────────────────────────────────────────────────────
   const [user, setUser] = useState(() => load('betSiteUser', null));
   const [wallet, setWallet] = useState(() => load('betSiteWallet', 0));
@@ -352,7 +363,7 @@ export const UserProvider = ({ children }) => {
   return (
     <UserContext.Provider
       value={{
-        country, changeCountry, formatCurrency,
+        country, changeCountry, formatCurrency, getLocalMinStake,
         user, logout, login, register, requestOtp,
         wallet, deposit, withdraw, deductStake, transactions, creditWinnings,
         myBets, setMyBets, addBetToHistory,
