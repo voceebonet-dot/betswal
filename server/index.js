@@ -1186,7 +1186,7 @@ io.on('connection', (socket) => {
   });
 
   // ── Aviator: manual cash-out during FLYING phase ──────────────
-  socket.on('aviator_cashout', () => {
+  socket.on('aviator_cashout', async () => {
     const player = aviator.players[socket.id];
     if (!player || player.cashedOut || aviator.phase !== 'flying') {
       socket.emit('aviator_error', { message: 'Cannot cash out right now.' });
@@ -1194,7 +1194,28 @@ io.on('connection', (socket) => {
     }
     player.cashedOut = true;
     player.cashoutMultiplier = aviator.multiplier;
-    const winnings = (player.stake * player.cashoutMultiplier).toFixed(2);
+    const winnings = parseFloat((player.stake * player.cashoutMultiplier).toFixed(2));
+    
+    try {
+      if (player.userId) {
+        const updatedUser = await User.findByIdAndUpdate(
+          player.userId,
+          { $inc: { balance: winnings, totalWon: winnings } },
+          { returnDocument: 'after' }
+        );
+        await Transaction.create({
+          userId: player.userId,
+          phone: updatedUser.phone,
+          type: 'winnings',
+          amount: winnings,
+          ref: `AVIATOR-WIN-${Date.now()}`
+        });
+        socket.emit('balance_update', { balance: updatedUser.balance });
+      }
+    } catch (err) {
+      console.error('Aviator cashout DB error:', err);
+    }
+
     socket.emit('aviator_cashed_out', {
       multiplier: player.cashoutMultiplier,
       stake: player.stake,
@@ -1288,12 +1309,36 @@ const startFlyingPhase = () => {
     aviator.multiplier = parseFloat((aviator.multiplier * 1.03).toFixed(2));
 
     // Auto-cashout for players who set a target
-    Object.entries(aviator.players).forEach(([sid, player]) => {
+    Object.entries(aviator.players).forEach(async ([sid, player]) => {
       if (!player.cashedOut && player.autoCashout && aviator.multiplier >= player.autoCashout) {
         player.cashedOut = true;
         player.cashoutMultiplier = aviator.multiplier;
-        const winnings = (player.stake * player.cashoutMultiplier).toFixed(2);
+        const winnings = parseFloat((player.stake * player.cashoutMultiplier).toFixed(2));
+        
         const sock = io.sockets.sockets.get(sid);
+
+        try {
+          if (player.userId) {
+            const updatedUser = await User.findByIdAndUpdate(
+              player.userId,
+              { $inc: { balance: winnings, totalWon: winnings } },
+              { returnDocument: 'after' }
+            );
+            await Transaction.create({
+              userId: player.userId,
+              phone: updatedUser.phone,
+              type: 'winnings',
+              amount: winnings,
+              ref: `AVIATOR-WIN-${Date.now()}`
+            });
+            if (sock) {
+              sock.emit('balance_update', { balance: updatedUser.balance });
+            }
+          }
+        } catch (err) {
+          console.error('Aviator auto-cashout DB error:', err);
+        }
+
         if (sock) {
           sock.emit('aviator_cashed_out', {
             multiplier: player.cashoutMultiplier,
