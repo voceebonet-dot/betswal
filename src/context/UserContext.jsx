@@ -5,13 +5,19 @@ import { useSocket } from './SocketContext';
 
 // Country definitions with exchange rates relative to KSh (base 1)
 export const COUNTRIES = {
-  KE: { id: 'KE', name: 'Kenya',        currency: 'KSh', symbol: 'KSh', rate: 1 },
-  NG: { id: 'NG', name: 'Nigeria',      currency: 'NGN', symbol: '₦',   rate: 11.5 },
-  GH: { id: 'GH', name: 'Ghana',        currency: 'GHS', symbol: 'GH₵', rate: 0.1 },
-  ZA: { id: 'ZA', name: 'South Africa', currency: 'ZAR', symbol: 'R',   rate: 0.15 },
-  UG: { id: 'UG', name: 'Uganda',       currency: 'UGX', symbol: 'UGX', rate: 29.5 },
-  TZ: { id: 'TZ', name: 'Tanzania',     currency: 'TZS', symbol: 'TSh', rate: 20 },
+  KE: { id: 'KE', name: 'Kenya',        currency: 'KSh', symbol: 'KSh', rate: 1     },
+  NG: { id: 'NG', name: 'Nigeria',      currency: 'NGN', symbol: '₦',   rate: 11.5  },
+  GH: { id: 'GH', name: 'Ghana',        currency: 'GHS', symbol: 'GH₵', rate: 0.1   },
+  ZA: { id: 'ZA', name: 'South Africa', currency: 'ZAR', symbol: 'R',   rate: 0.15  },
+  UG: { id: 'UG', name: 'Uganda',       currency: 'UGX', symbol: 'UGX', rate: 29.5  },
+  TZ: { id: 'TZ', name: 'Tanzania',     currency: 'TZS', symbol: 'TSh', rate: 20    },
+  MW: { id: 'MW', name: 'Malawi',       currency: 'MWK', symbol: 'MK',  rate: 13.3  },
+  ZW: { id: 'ZW', name: 'Zimbabwe',     currency: 'ZWG', symbol: 'Z$',  rate: 0.21  },
+  ZM: { id: 'ZM', name: 'Zambia',       currency: 'ZMW', symbol: 'K',   rate: 0.21  },
+  BW: { id: 'BW', name: 'Botswana',     currency: 'BWP', symbol: 'P',   rate: 0.10  },
+  ET: { id: 'ET', name: 'Ethiopia',     currency: 'ETB', symbol: 'Br',  rate: 0.87  },
 };
+
 
 const UserContext = createContext(null);
 
