@@ -1446,6 +1446,7 @@ app.post('/api/deposit', async (req, res) => {
 // Payhero Webhook for successful deposits
 app.post('/api/payhero/webhook', express.json(), async (req, res) => {
   const event = req.body;
+  console.log("Payhero Webhook Received:", JSON.stringify(event));
   
   if (event.success && event.response && event.response.ResultCode === 0) {
     const amount = event.response.Amount;
