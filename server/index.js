@@ -1126,7 +1126,8 @@ io.on('connection', (socket) => {
   });
 
   // ── Aviator: place bet during BETTING phase ───────────────────
-  socket.on('aviator_place_bet', ({ stake, autoCashout }) => {
+  socket.on('aviator_place_bet', async ({ stake, autoCashout }) => {
+    if (!socket.user) return socket.emit('aviator_error', { message: 'Not authenticated.' });
     if (!checkRateLimit(socket.id, 'aviator_bet', 3, 5000)) {
       return socket.emit('aviator_error', { message: 'Too many bets. Please wait.' });
     }
@@ -1140,14 +1141,48 @@ io.on('connection', (socket) => {
     if (isNaN(stakeNum) || stakeNum < GAME_CONFIG.AVIATOR.minStake || stakeNum > GAME_CONFIG.AVIATOR.maxStake) {
       return socket.emit('aviator_error', { message: `Invalid stake. Minimum is ${formatLocalCurrency(GAME_CONFIG.AVIATOR.minStake, socket.user?.countryId)}.` });
     }
-    
-    aviator.players[socket.id] = {
-      stake: stakeNum,
-      autoCashout: autoCashout ? parseFloat(autoCashout) : null,
-      cashedOut: false,
-      cashoutMultiplier: null,
-    };
-    socket.emit('aviator_bet_placed', { stake: stakeNum, autoCashout });
+
+    try {
+      const dbUser = await User.findById(socket.user.userId);
+      if (!dbUser || dbUser.balance < stakeNum) {
+        return socket.emit('aviator_error', { message: `Insufficient balance. Required: ${formatLocalCurrency(stakeNum, socket.user?.countryId)}.` });
+      }
+
+      // Deduct balance
+      const updatedUser = await User.findByIdAndUpdate(
+        socket.user.userId,
+        { $inc: { balance: -stakeNum } },
+        { returnDocument: 'after' }
+      );
+
+      await Transaction.create({
+        userId: dbUser._id,
+        phone: dbUser.phone,
+        type: 'bet',
+        amount: stakeNum,
+        ref: `AVIATOR-${Date.now()}`,
+      });
+
+      // Update admin stats
+      adminStats.totalBets++;
+      adminStats.totalStaked += stakeNum;
+      io.to('admins').emit('admin_stats', adminStats);
+
+      // Register player in Aviator session
+      aviator.players[socket.id] = {
+        userId: dbUser._id.toString(), // track userId for rewards
+        stake: stakeNum,
+        autoCashout: autoCashout ? parseFloat(autoCashout) : null,
+        cashedOut: false,
+        cashoutMultiplier: null,
+      };
+
+      socket.emit('balance_update', { balance: updatedUser.balance });
+      socket.emit('aviator_bet_placed', { stake: stakeNum, autoCashout });
+    } catch (err) {
+      console.error('Aviator bet error:', err);
+      socket.emit('aviator_error', { message: 'Error placing bet.' });
+    }
   });
 
   // ── Aviator: manual cash-out during FLYING phase ──────────────
