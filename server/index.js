@@ -25,6 +25,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'betswal-dev-secret-change-in-prod'
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '0000000000';
 const FOOTBALL_DATA_API_KEY = process.env.FOOTBALL_DATA_API_KEY || null;
 
+const GAME_CONFIG = {
+  SPORTS: { minStake: 50, maxStake: 100000, maxPayout: 1000000 },
+  AVIATOR: { minStake: 10, maxStake: 50000, maxMultiplier: 100 },
+  JACKPOT: { minStake: 99 }
+};
+
 const signToken = (user) => jwt.sign(
   { userId: user._id, phone: user.phone, role: user.role },
   JWT_SECRET,
@@ -742,7 +748,7 @@ io.on('connection', (socket) => {
     const jackpotInfo = jackpot[jackpotKey];
     if (!jackpotInfo) return socket.emit('jackpot_error', { message: 'Invalid jackpot type.' });
 
-    const stake = jackpotInfo.minStake || 99;
+    const stake = jackpotInfo.minStake || GAME_CONFIG.JACKPOT.minStake;
 
     try {
       const dbUser = await User.findById(socket.user.userId);
@@ -859,8 +865,8 @@ io.on('connection', (socket) => {
 
     // Payload validation
     const stakeNum = parseFloat(stake);
-    if (isNaN(stakeNum) || stakeNum <= 0 || stakeNum > 10000000) {
-      return socket.emit('bet_error', { message: 'Invalid stake amount.' });
+    if (isNaN(stakeNum) || stakeNum < GAME_CONFIG.SPORTS.minStake || stakeNum > GAME_CONFIG.SPORTS.maxStake) {
+      return socket.emit('bet_error', { message: `Invalid stake. Minimum is KSh ${GAME_CONFIG.SPORTS.minStake}.` });
     }
     if (!Array.isArray(bets) || bets.length === 0 || bets.length > 50) {
       return socket.emit('bet_error', { message: 'Invalid bet selection.' });
@@ -1097,8 +1103,8 @@ io.on('connection', (socket) => {
     }
     
     const stakeNum = parseFloat(stake);
-    if (isNaN(stakeNum) || stakeNum <= 0 || stakeNum > 1000000) {
-      return socket.emit('aviator_error', { message: 'Invalid stake amount.' });
+    if (isNaN(stakeNum) || stakeNum < GAME_CONFIG.AVIATOR.minStake || stakeNum > GAME_CONFIG.AVIATOR.maxStake) {
+      return socket.emit('aviator_error', { message: `Invalid stake. Minimum is KSh ${GAME_CONFIG.AVIATOR.minStake}.` });
     }
     
     aviator.players[socket.id] = {

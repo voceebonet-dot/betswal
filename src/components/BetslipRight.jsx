@@ -217,6 +217,11 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
                     style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '11px 12px 11px 36px', borderRadius: '9px', fontSize: '16px', fontWeight: 800, outline: 'none', boxSizing: 'border-box', transition: 'all 0.2s' }}
                   />
                 </div>
+                {parseFloat(stake) < 50 && (
+                  <div style={{ fontSize: '11px', color: '#ff4757', marginTop: '-2px', textAlign: 'center', fontWeight: 700 }}>
+                    Minimum stake is {country.symbol} 50
+                  </div>
+                )}
 
                 {/* Totals */}
                 <div style={{ background: 'rgba(134,196,57,0.05)', border: '1px solid rgba(134,196,57,0.12)', borderRadius: '10px', padding: '12px' }}>
@@ -240,8 +245,9 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
                 {/* CTA buttons */}
                 <button
                   className="btn btn-primary"
-                  style={{ width: '100%', padding: '14px', fontSize: '15px', borderRadius: '10px', fontWeight: 800, boxShadow: '0 4px 20px rgba(134,196,57,0.35)', letterSpacing: '0.3px' }}
+                  style={{ width: '100%', padding: '14px', fontSize: '15px', borderRadius: '10px', fontWeight: 800, boxShadow: '0 4px 20px rgba(134,196,57,0.35)', letterSpacing: '0.3px', opacity: parseFloat(stake) < 50 ? 0.5 : 1, cursor: parseFloat(stake) < 50 ? 'not-allowed' : 'pointer' }}
                   onClick={handlePlaceBet}
+                  disabled={parseFloat(stake) < 50}
                 >
                   Place Bet →
                 </button>

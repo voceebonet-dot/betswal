@@ -574,7 +574,7 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
       )}
 
       {/* Stake input */}
-      <div style={{ display: 'flex', gap: '5px', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', gap: '5px', marginBottom: '4px' }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>{country.symbol}</span>
           <input type="number" value={stake} onChange={e => setStake(e.target.value)} disabled={betPlaced}
@@ -590,6 +590,11 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
           );
         })}
       </div>
+      {parseFloat(stake) < 10 && !betPlaced && (
+        <div style={{ fontSize: '11px', color: '#ff4757', marginBottom: '8px', textAlign: 'center', fontWeight: 700 }}>
+          Minimum stake is {country.symbol}10
+        </div>
+      )}
 
       {/* Auto cashout (only in auto mode) */}
       {mode === 'auto' && (
@@ -621,13 +626,13 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
 
       {/* Action Button */}
       {canBet && (
-        <button onClick={handleBet} style={{ width: '100%', background: 'linear-gradient(135deg, #9ae640, #5a9e27)', color: '#000', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 900, fontSize: '15px', cursor: 'pointer', letterSpacing: '0.5px', boxShadow: '0 6px 20px rgba(134,196,57,0.4), inset 0 1px 1px rgba(255,255,255,0.4)', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
-          onMouseOver={e => { e.currentTarget.style.boxShadow = '0 8px 25px rgba(134,196,57,0.6), inset 0 1px 1px rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-          onMouseOut={e => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(134,196,57,0.4), inset 0 1px 1px rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-          onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(134,196,57,0.4)'; }}
-          onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
+        <button onClick={handleBet} disabled={parseFloat(stake) < 10} style={{ width: '100%', background: parseFloat(stake) < 10 ? 'rgba(255,255,255,0.07)' : 'linear-gradient(135deg, #9ae640, #5a9e27)', color: parseFloat(stake) < 10 ? 'rgba(255,255,255,0.3)' : '#000', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: 900, fontSize: '15px', cursor: parseFloat(stake) < 10 ? 'not-allowed' : 'pointer', letterSpacing: '0.5px', boxShadow: parseFloat(stake) < 10 ? 'none' : '0 6px 20px rgba(134,196,57,0.4), inset 0 1px 1px rgba(255,255,255,0.4)', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
+          onMouseOver={e => { if (parseFloat(stake) >= 10) { e.currentTarget.style.boxShadow = '0 8px 25px rgba(134,196,57,0.6), inset 0 1px 1px rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}}
+          onMouseOut={e => { e.currentTarget.style.boxShadow = parseFloat(stake) < 10 ? 'none' : '0 6px 20px rgba(134,196,57,0.4), inset 0 1px 1px rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+          onMouseDown={e => { if (parseFloat(stake) >= 10) { e.currentTarget.style.transform = 'translateY(1px)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(134,196,57,0.4)'; }}}
+          onMouseUp={e => { if (parseFloat(stake) >= 10) { e.currentTarget.style.transform = 'translateY(-2px)'; }}}
         >
-          BET <span style={{ fontSize: '16px' }}>{country.symbol}{stake}</span>
+          {parseFloat(stake) < 10 ? `Min ${country.symbol}10` : <>BET <span style={{ fontSize: '16px' }}>{country.symbol}{stake}</span></>}
         </button>
       )}
       {betPlaced && phase === 'betting' && (
