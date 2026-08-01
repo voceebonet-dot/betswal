@@ -1158,7 +1158,7 @@ io.on('connection', (socket) => {
       await Transaction.create({
         userId: dbUser._id,
         phone: dbUser.phone,
-        type: 'bet',
+        type: 'bet_stake',
         amount: stakeNum,
         ref: `AVIATOR-${Date.now()}`,
       });
