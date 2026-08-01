@@ -25,6 +25,36 @@ const JWT_SECRET = process.env.JWT_SECRET || 'betswal-dev-secret-change-in-prod'
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '0000000000';
 const FOOTBALL_DATA_API_KEY = process.env.FOOTBALL_DATA_API_KEY || null;
 
+const COUNTRIES = {
+  KE: { id: 'KE', name: 'Kenya',        currency: 'KSh', symbol: 'KSh', rate: 1     },
+  NG: { id: 'NG', name: 'Nigeria',      currency: 'NGN', symbol: '₦',   rate: 11.5  },
+  GH: { id: 'GH', name: 'Ghana',        currency: 'GHS', symbol: 'GH₵', rate: 0.1   },
+  ZA: { id: 'ZA', name: 'South Africa', currency: 'ZAR', symbol: 'R',   rate: 0.15  },
+  UG: { id: 'UG', name: 'Uganda',       currency: 'UGX', symbol: 'UGX', rate: 29.5  },
+  TZ: { id: 'TZ', name: 'Tanzania',     currency: 'TZS', symbol: 'TSh', rate: 20    },
+  MW: { id: 'MW', name: 'Malawi',       currency: 'MWK', symbol: 'MK',  rate: 13.3  },
+  ZW: { id: 'ZW', name: 'Zimbabwe',     currency: 'ZWG', symbol: 'Z$',  rate: 0.21  },
+  ZM: { id: 'ZM', name: 'Zambia',       currency: 'ZMW', symbol: 'K',   rate: 0.21  },
+  BW: { id: 'BW', name: 'Botswana',     currency: 'BWP', symbol: 'P',   rate: 0.10  },
+  ET: { id: 'ET', name: 'Ethiopia',     currency: 'ETB', symbol: 'Br',  rate: 0.87  },
+};
+
+const formatLocalCurrency = (baseAmount, countryId = 'KE') => {
+  const country = COUNTRIES[countryId] || COUNTRIES['KE'];
+  const localAmount = baseAmount * country.rate;
+  return `${country.symbol} ${localAmount.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+};
+
+const getLocalMinStake = (kshBase, countryId = 'KE') => {
+  const country = COUNTRIES[countryId] || COUNTRIES['KE'];
+  const raw = kshBase * country.rate;
+  if (raw < 5)   return Math.ceil(raw);
+  if (raw < 50)  return Math.round(raw / 5) * 5;
+  if (raw < 500) return Math.round(raw / 10) * 10;
+  if (raw < 5000) return Math.round(raw / 50) * 50;
+  return Math.round(raw / 100) * 100;
+};
+
 const GAME_CONFIG = {
   SPORTS: { minStake: 50, maxStake: 100000, maxPayout: 1000000 },
   AVIATOR: { minStake: 10, maxStake: 50000, maxMultiplier: 100 },
@@ -601,7 +631,10 @@ io.on('connection', (socket) => {
             $inc: { balance: dbBet.possibleWin, totalWon: dbBet.possibleWin }
           });
           await Transaction.create({ userId: dbBet.userId, phone: dbBet.phone, type: 'winnings', amount: dbBet.possibleWin, ref: ticketRef });
-          sendSMS(dbBet.phone, `🏆 Congratulations! Your bet ${ticketRef} WON! KSh ${dbBet.possibleWin} has been credited to your account.`);
+          // User may have countryId, let's load it from dbBet user reference or default to KE
+          const betUser = await User.findById(dbBet.userId).lean();
+          const countryId = betUser?.countryId || 'KE';
+          sendSMS(dbBet.phone, `🏆 Congratulations! Your bet ${ticketRef} WON! ${formatLocalCurrency(dbBet.possibleWin, countryId)} has been credited to your account.`);
         } else if (status === 'Lost') {
           sendSMS(dbBet.phone, `❌ Your bet ${ticketRef} did not win this time. Better luck next time on BetsWal!`);
         }
@@ -753,7 +786,7 @@ io.on('connection', (socket) => {
     try {
       const dbUser = await User.findById(socket.user.userId);
       if (!dbUser || dbUser.balance < stake) {
-        return socket.emit('jackpot_error', { message: `Insufficient balance. Min stake is KSh ${stake}.` });
+        return socket.emit('jackpot_error', { message: `Insufficient balance. Min stake is ${formatLocalCurrency(stake, socket.user?.countryId)}.` });
       }
 
       // Deduct balance
@@ -866,7 +899,8 @@ io.on('connection', (socket) => {
     // Payload validation
     const stakeNum = parseFloat(stake);
     if (isNaN(stakeNum) || stakeNum < GAME_CONFIG.SPORTS.minStake || stakeNum > GAME_CONFIG.SPORTS.maxStake) {
-      return socket.emit('bet_error', { message: `Invalid stake. Minimum is KSh ${GAME_CONFIG.SPORTS.minStake}.` });
+      const localMin = getLocalMinStake(GAME_CONFIG.SPORTS.minStake, socket.user?.countryId);
+      return socket.emit('bet_error', { message: `Invalid stake. Minimum is ${formatLocalCurrency(GAME_CONFIG.SPORTS.minStake, socket.user?.countryId)}.` });
     }
     if (!Array.isArray(bets) || bets.length === 0 || bets.length > 50) {
       return socket.emit('bet_error', { message: 'Invalid bet selection.' });
@@ -964,7 +998,7 @@ io.on('connection', (socket) => {
 
     // SMS confirmation
     if (socket.user?.phone) {
-      sendSMS(socket.user.phone, `🏟️ Bet placed! Ticket: ${ticketRef} | Stake: KSh ${stakeNum} | Win: KSh ${possibleWin}`);
+      sendSMS(socket.user.phone, `🏟️ Bet placed! Ticket: ${ticketRef} | Stake: ${formatLocalCurrency(stakeNum, socket.user?.countryId)} | Win: ${formatLocalCurrency(possibleWin, socket.user?.countryId)}`);
     }
     
     console.log(`🎟️  Bet placed ${ticketRef} | Stake: ${stakeNum} | Win: ${possibleWin}`);
@@ -998,8 +1032,8 @@ io.on('connection', (socket) => {
       if (adminBet) adminBet.status = 'CashedOut';
       io.to('admins').emit('admin_stats', adminStats);
 
-      sendSMS(socket.user.phone, `💰 Cashout successful! KSh ${cashoutValue} credited for ticket ${ticketRef}.`);
-      console.log(`💰 Cashout: ${ticketRef} → KSh ${cashoutValue}`);
+      sendSMS(socket.user.phone, `💰 Cashout successful! ${formatLocalCurrency(cashoutValue, socket.user?.countryId)} credited for ticket ${ticketRef}.`);
+      console.log(`💰 Cashout: ${ticketRef} → ${formatLocalCurrency(cashoutValue, socket.user?.countryId)}`);
     } catch (err) {
       console.error('Cashout error:', err);
       socket.emit('cashout_error', { message: 'Cashout failed. Please try again.' });
@@ -1017,7 +1051,7 @@ io.on('connection', (socket) => {
         await Transaction.create({ userId: u._id, phone: u.phone, type: 'bonus', amount: amt, ref: `BONUS-${Date.now()}` });
         io.emit('bonus_update_target', { userId: u._id.toString(), bonusBalance: u.bonusBalance });
         socket.emit('admin_bonus_granted', { phone: u.phone, bonusBalance: u.bonusBalance, reason });
-        sendSMS(u.phone, `🎁 You've received a KSh ${amt} free bet bonus on BetsWal! ${reason ? `(${reason})` : ''} Happy betting!`);
+        sendSMS(u.phone, `🎁 You've received a ${formatLocalCurrency(amt, u.countryId)} free bet bonus on BetsWal! ${reason ? `(${reason})` : ''} Happy betting!`);
       }
     } catch (err) { console.error('Grant bonus error:', err); }
   });
@@ -1104,7 +1138,7 @@ io.on('connection', (socket) => {
     
     const stakeNum = parseFloat(stake);
     if (isNaN(stakeNum) || stakeNum < GAME_CONFIG.AVIATOR.minStake || stakeNum > GAME_CONFIG.AVIATOR.maxStake) {
-      return socket.emit('aviator_error', { message: `Invalid stake. Minimum is KSh ${GAME_CONFIG.AVIATOR.minStake}.` });
+      return socket.emit('aviator_error', { message: `Invalid stake. Minimum is ${formatLocalCurrency(GAME_CONFIG.AVIATOR.minStake, socket.user?.countryId)}.` });
     }
     
     aviator.players[socket.id] = {
@@ -1131,7 +1165,7 @@ io.on('connection', (socket) => {
       stake: player.stake,
       winnings,
     });
-    console.log(`✈️  Cashout: ${socket.id} @ ${player.cashoutMultiplier}x → KSh ${winnings}`);
+    console.log(`✈️  Cashout: ${socket.id} @ ${player.cashoutMultiplier}x → ${formatLocalCurrency(winnings, socket.user?.countryId)}`);
   });
 
   // Send current aviator state on connect
@@ -1516,13 +1550,13 @@ app.post('/api/payhero/webhook', express.json(), async (req, res) => {
           if (referrer) {
             await Transaction.create({ userId: referrer._id, phone: referrer.phone, type: 'referral_bonus', amount: 50, ref: `REF-${depositUser.phone}` });
             io.emit('bonus_update_target', { userId: referrer._id.toString(), bonusBalance: referrer.bonusBalance });
-            sendSMS(referrer.phone, `🎉 Your referral made their first deposit! KSh 50 bonus added to your account.`);
+            sendSMS(referrer.phone, `🎉 Your referral made their first deposit! ${formatLocalCurrency(50, referrer.countryId)} bonus added to your account.`);
           }
         }
         
         io.emit('balance_update_target', { userId: depositUser._id.toString(), balance: depositUser.balance });
         io.emit('deposit_success', { userId: depositUser._id.toString(), amount, balance: depositUser.balance });
-        sendSMS(depositUser.phone, `✅ Deposit of KSh ${amount} confirmed via Payhero. Balance: KSh ${depositUser.balance}.`);
+        sendSMS(depositUser.phone, `✅ Deposit of ${formatLocalCurrency(amount, depositUser.countryId)} confirmed via Payhero. Balance: ${formatLocalCurrency(depositUser.balance, depositUser.countryId)}.`);
       }
     } catch (err) { console.error('Webhook DB error:', err); }
   } else if (isSuccess && event.response && event.response.ResultCode !== 0) {

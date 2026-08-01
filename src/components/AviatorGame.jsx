@@ -759,15 +759,24 @@ const AviatorGame = () => {
       <div className="aviator-history-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '1rem', flexWrap: 'wrap' }}>
         <div className="aviator-history-pills" style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
           <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginRight: '4px', fontWeight: 600, letterSpacing: '0.5px' }}>HISTORY</span>
-          {history.slice(-14).map((v, i) => (
-            <span key={i} style={{
-              background: crashColour(v) + '1a', color: crashColour(v),
-              fontWeight: 700, fontSize: '11px', padding: '3px 10px',
-              borderRadius: '20px', border: `1px solid ${crashColour(v)}44`, cursor: 'default',
-            }}>
-              {v.toFixed(2)}x
-            </span>
-          ))}
+          {history.slice(-14).map((v, i) => {
+            const isHigh = v >= 10;
+            const isMid = v >= 2 && v < 10;
+            const bg = isHigh ? 'linear-gradient(135deg, #fecd08 0%, #ff9f43 100%)' : isMid ? `${crashColour(v)}22` : `${crashColour(v)}1a`;
+            const color = isHigh ? '#000' : crashColour(v);
+            const shadow = isHigh ? `0 0 10px ${crashColour(v)}66` : 'none';
+            const border = isHigh ? 'none' : `1px solid ${crashColour(v)}44`;
+            return (
+              <span key={i} style={{
+                background: bg, color: color,
+                fontWeight: 800, fontSize: '11px', padding: '3px 10px',
+                borderRadius: '20px', border: border, cursor: 'default',
+                boxShadow: shadow, transition: 'all 0.3s'
+              }}>
+                {v.toFixed(2)}x
+              </span>
+            );
+          })}
         </div>
 
         {/* Session mini-stats */}
