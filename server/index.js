@@ -1366,11 +1366,17 @@ app.post('/api/auth/login', async (req, res) => {
   if (!phone.startsWith('+')) phone = '+' + phone;
 
   try {
-    const user = await User.findOne({ phone });
+    let user = await User.findOne({ phone });
     if (!user) return res.status(400).json({ ok: false, error: 'Invalid phone or password' });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ ok: false, error: 'Invalid phone or password' });
+
+    // Auto-promote to admin if phone matches ADMIN_PHONE and role isn't already admin
+    if (phone === ADMIN_PHONE && user.role !== 'admin') {
+      user = await User.findByIdAndUpdate(user._id, { role: 'admin' }, { new: true });
+      console.log(`✅ Auto-promoted ${phone} to admin on login`);
+    }
 
     const token = signToken(user);
     res.json({ ok: true, token, user: { phone: user.phone, name: user.name, role: user.role, balance: user.balance, bonusBalance: user.bonusBalance, countryId: user.countryId, referralCode: user.referralCode } });
