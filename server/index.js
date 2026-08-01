@@ -588,7 +588,7 @@ io.on('connection', (socket) => {
     if (bet) bet.status = status;
     // Persist to MongoDB and credit winnings if Won
     try {
-      const dbBet = await Bet.findOneAndUpdate({ ticketRef }, { status }, { new: true });
+      const dbBet = await Bet.findOneAndUpdate({ ticketRef }, { status }, { returnDocument: 'after' });
       if (dbBet && dbBet.userId) {
         if (status === 'Won') {
           await User.findByIdAndUpdate(dbBet.userId, {
@@ -658,7 +658,7 @@ io.on('connection', (socket) => {
         const w = await Withdrawal.findOneAndUpdate({ reqId }, { status: 'Rejected' });
         if (w && w.userId) {
           // Refund user
-          const u = await User.findByIdAndUpdate(w.userId, { $inc: { balance: w.amount } }, { new: true });
+          const u = await User.findByIdAndUpdate(w.userId, { $inc: { balance: w.amount } }, { returnDocument: 'after' });
           if (u) io.emit('balance_update_target', { userId: u._id.toString(), balance: u.balance });
         }
       } catch (err) {
@@ -780,7 +780,7 @@ io.on('connection', (socket) => {
   socket.on('admin_settle_jackpot', async ({ ticketRef, status }) => {
     if (!socket.user || socket.user.role !== 'admin') return;
     try {
-      const ticket = await JackpotTicket.findOneAndUpdate({ ticketRef }, { status }, { new: true });
+      const ticket = await JackpotTicket.findOneAndUpdate({ ticketRef }, { status }, { returnDocument: 'after' });
       if (ticket && status === 'Won' && ticket.userId) {
         const prize = ticket.stake * 1000; // Example prize multiplier
         await User.findByIdAndUpdate(ticket.userId, { $inc: { balance: prize, totalWon: prize } });
@@ -814,7 +814,7 @@ io.on('connection', (socket) => {
     try {
       const amt = parseFloat(amount);
       if (isNaN(amt)) return;
-      const u = await User.findByIdAndUpdate(userId, { $inc: { balance: amt } }, { new: true });
+      const u = await User.findByIdAndUpdate(userId, { $inc: { balance: amt } }, { returnDocument: 'after' });
       if (u) {
         await Transaction.create({ userId: u._id, phone: u.phone, type: amt > 0 ? 'deposit' : 'withdrawal', amount: Math.abs(amt), ref: `ADMIN-${Date.now()}` });
         // Notify user if connected
@@ -830,7 +830,7 @@ io.on('connection', (socket) => {
   socket.on('admin_make_admin', async ({ userId }) => {
     if (!socket.user || socket.user.role !== 'admin') return;
     try {
-      const u = await User.findByIdAndUpdate(userId, { role: 'admin' }, { new: true });
+      const u = await User.findByIdAndUpdate(userId, { role: 'admin' }, { returnDocument: 'after' });
       if (u) {
         socket.emit('admin_balance_updated', { phone: u.phone, balance: u.balance, reason: 'Promoted to Admin' }); // Reusing notification UI
       }
@@ -1006,7 +1006,7 @@ io.on('connection', (socket) => {
     try {
       const amt = parseFloat(amount);
       if (isNaN(amt) || amt <= 0) return;
-      const u = await User.findByIdAndUpdate(userId, { $inc: { bonusBalance: amt } }, { new: true });
+      const u = await User.findByIdAndUpdate(userId, { $inc: { bonusBalance: amt } }, { returnDocument: 'after' });
       if (u) {
         await Transaction.create({ userId: u._id, phone: u.phone, type: 'bonus', amount: amt, ref: `BONUS-${Date.now()}` });
         io.emit('bonus_update_target', { userId: u._id.toString(), bonusBalance: u.bonusBalance });
@@ -1055,7 +1055,7 @@ io.on('connection', (socket) => {
       await Kyc.findOneAndUpdate(
         { userId: socket.user.userId },
         { userId: socket.user.userId, phone: socket.user.phone, idType, idNumber, fullName, status: 'Pending', submittedAt: new Date() },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
       );
       await User.findByIdAndUpdate(socket.user.userId, { kycStatus: 'pending' });
       socket.emit('kyc_submitted', { message: 'KYC submitted! We’ll review within 24 hours.' });
@@ -1396,7 +1396,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Auto-promote to admin if phone matches ADMIN_PHONE and role isn't already admin
     if (phone === ADMIN_PHONE && user.role !== 'admin') {
-      user = await User.findByIdAndUpdate(user._id, { role: 'admin' }, { new: true });
+      user = await User.findByIdAndUpdate(user._id, { role: 'admin' }, { returnDocument: 'after' });
       console.log(`✅ Auto-promoted ${phone} to admin on login`);
     }
 
@@ -1495,7 +1495,7 @@ app.post('/api/payhero/webhook', express.json(), async (req, res) => {
       const depositUser = await User.findOneAndUpdate(
         userQuery,
         { $inc: { balance: amount, totalDeposited: amount } },
-        { new: true }
+        { returnDocument: 'after' }
       );
 
       if (depositUser) {
@@ -1505,7 +1505,7 @@ app.post('/api/payhero/webhook', express.json(), async (req, res) => {
           const referrer = await User.findOneAndUpdate(
             { referralCode: depositUser.referredBy },
             { $inc: { bonusBalance: 50, referralCount: 1, referralEarned: 50 } },
-            { new: true }
+            { returnDocument: 'after' }
           );
           if (referrer) {
             await Transaction.create({ userId: referrer._id, phone: referrer.phone, type: 'referral_bonus', amount: 50, ref: `REF-${depositUser.phone}` });
