@@ -131,9 +131,11 @@ let liveMatches = [
 const generateFutureDate = (daysAhead, hoursStr) => {
   const d = new Date();
   d.setDate(d.getDate() + daysAhead);
+  const [h, m] = hoursStr.split(':');
+  d.setHours(parseInt(h), parseInt(m), 0, 0);
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
-  return `${day}/${month}, ${hoursStr}`;
+  return { dateStr: `${day}/${month}, ${hoursStr}`, timestamp: d.getTime() };
 };
 
 const LEAGUES = {
@@ -241,6 +243,7 @@ const fetchRealSportsData = async () => {
           home: m.home_team,
           away: m.away_team,
           date: `${day}/${month}, ${hours}:${mins}`,
+          timestamp: d.getTime(),
           odds: [odd1, oddX, odd2]
         };
       });
@@ -276,13 +279,16 @@ for (let day = 0; day <= 7; day++) {
       const oddX = (Math.random() * 2 + 2.5).toFixed(2);
       const odd2 = (Math.random() * 4 + 1.5).toFixed(2);
 
+      const { dateStr, timestamp } = generateFutureDate(day, `${hour}:${min}`);
+
       highlightMatches.push({
         id: matchIdCounter++,
         sport: sport,
         country: league,
         home: teamPair[0],
         away: teamPair[1],
-        date: generateFutureDate(day, `${hour}:${min}`),
+        date: dateStr,
+        timestamp: timestamp,
         odds: [parseFloat(odd1), parseFloat(oddX), parseFloat(odd2)]
       });
     }
@@ -419,7 +425,12 @@ setInterval(() => {
 // ─────────────────────────────────────────────────────────────────
 setInterval(() => {
   const baseData = (ODDS_API_KEY && realSportsCache.length > 0) ? realSportsCache : highlightMatches;
-  const currentHighlights = baseData.map(match => ({
+  
+  // Filter for current and future games (started less than 2 hours ago)
+  const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+  const filteredData = baseData.filter(m => !m.timestamp || m.timestamp > twoHoursAgo);
+
+  const currentHighlights = filteredData.map(match => ({
     ...match,
     odds: match.odds.map(o => jitter(o, 0.06)),
   }));
