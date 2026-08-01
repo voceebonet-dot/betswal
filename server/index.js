@@ -543,6 +543,15 @@ io.on('connection', (socket) => {
     }).catch(() => {});
   }
 
+  // ── Get fresh balance from DB (called by client after rehydration) ──────
+  socket.on('get_balance', async () => {
+    if (!socket.user) return;
+    try {
+      const u = await User.findById(socket.user.userId).lean();
+      if (u) socket.emit('balance_update', { balance: u.balance });
+    } catch (e) { /* ignore */ }
+  });
+
   // ── Chat System ──────────────────────────────────────────────
   socket.on('chat_history', () => {
     if (socket.user) {
