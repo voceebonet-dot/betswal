@@ -518,17 +518,30 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
   useEffect(() => {
     if (!socket) return;
     const onState     = ({ phase: p }) => { if (p === 'betting') { setBetPlaced(false); setCashedOut(null); } };
-    const onCashedOut = ({ multiplier: m, winnings, auto }) => {
-      setCashedOut({ multiplier: m, winnings });
-      soundEngine.playCashout();
-      flash(`${auto ? '🤖 Auto' : '✋ Manual'} cashout @ ${m}x → ${country.symbol}${winnings}`, '#fecd08', 4000);
+    const onBetPlaced = ({ slot }) => {
+      if (slot === label) {
+        setBetPlaced(true);
+        soundEngine.playBet();
+        flash('✅ Bet confirmed!', '#86c439');
+      }
     };
-    const onError  = ({ message: e }) => flash(`❌ ${e}`, '#dc3545');
+    const onCashedOut = ({ multiplier: m, winnings, auto, slot }) => {
+      if (slot === label) {
+        setCashedOut({ multiplier: m, winnings });
+        soundEngine.playCashout();
+        flash(`${auto ? '🤖 Auto' : '✋ Manual'} cashout @ ${m}x → ${country.symbol}${winnings}`, '#fecd08', 4000);
+      }
+    };
+    const onError  = ({ message: e, slot }) => {
+      if (!slot || slot === label) flash(`❌ ${e}`, '#dc3545');
+    };
     socket.on('aviator_state',     onState);
+    socket.on('aviator_bet_placed', onBetPlaced);
     socket.on('aviator_cashed_out', onCashedOut);
     socket.on('aviator_error',     onError);
     return () => {
       socket.off('aviator_state',     onState);
+      socket.off('aviator_bet_placed', onBetPlaced);
       socket.off('aviator_cashed_out', onCashedOut);
       socket.off('aviator_error',     onError);
     };
@@ -538,14 +551,11 @@ const BetSlot = ({ socket, phase, multiplier, label, country }) => {
     if (!user) { flash('⚠️ Please login to place a bet.', '#dc3545'); return; }
     if (!socket || phase !== 'betting') return;
     const ac = mode === 'auto' && autoCashout ? parseFloat(autoCashout) : null;
-    socket.emit('aviator_place_bet', { stake: parseFloat(stake), autoCashout: ac });
-    setBetPlaced(true);
-    soundEngine.playBet();
-    flash('✅ Bet confirmed!', '#86c439');
+    socket.emit('aviator_place_bet', { stake: parseFloat(stake), autoCashout: ac, slot: label });
   };
   const handleCashout = () => {
     if (!socket || phase !== 'flying' || !betPlaced || cashedOut) return;
-    socket.emit('aviator_cashout');
+    socket.emit('aviator_cashout', { slot: label });
   };
 
   const canBet     = phase === 'betting' && !betPlaced;

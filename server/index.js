@@ -1126,26 +1126,26 @@ io.on('connection', (socket) => {
   });
 
   // ── Aviator: place bet during BETTING phase ───────────────────
-  socket.on('aviator_place_bet', async ({ stake, autoCashout }) => {
-    if (!socket.user) return socket.emit('aviator_error', { message: 'Not authenticated.' });
-    if (!checkRateLimit(socket.id, 'aviator_bet', 3, 5000)) {
-      return socket.emit('aviator_error', { message: 'Too many bets. Please wait.' });
+  socket.on('aviator_place_bet', async ({ stake, autoCashout, slot }) => {
+    if (!socket.user) return socket.emit('aviator_error', { message: 'Not authenticated.', slot });
+    if (!checkRateLimit(socket.id, 'aviator_bet', 4, 5000)) {
+      return socket.emit('aviator_error', { message: 'Too many bets. Please wait.', slot });
     }
     
     if (aviator.phase !== 'betting') {
-      socket.emit('aviator_error', { message: 'Betting is closed for this round.' });
+      socket.emit('aviator_error', { message: 'Betting is closed for this round.', slot });
       return;
     }
     
     const stakeNum = parseFloat(stake);
     if (isNaN(stakeNum) || stakeNum < GAME_CONFIG.AVIATOR.minStake || stakeNum > GAME_CONFIG.AVIATOR.maxStake) {
-      return socket.emit('aviator_error', { message: `Invalid stake. Minimum is ${formatLocalCurrency(GAME_CONFIG.AVIATOR.minStake, socket.user?.countryId)}.` });
+      return socket.emit('aviator_error', { message: `Invalid stake. Minimum is ${formatLocalCurrency(GAME_CONFIG.AVIATOR.minStake, socket.user?.countryId)}.`, slot });
     }
 
     try {
       const dbUser = await User.findById(socket.user.userId);
       if (!dbUser || dbUser.balance < stakeNum) {
-        return socket.emit('aviator_error', { message: `Insufficient balance. Required: ${formatLocalCurrency(stakeNum, socket.user?.countryId)}.` });
+        return socket.emit('aviator_error', { message: `Insufficient balance. Required: ${formatLocalCurrency(stakeNum, socket.user?.countryId)}.`, slot });
       }
 
       // Deduct balance
@@ -1160,7 +1160,7 @@ io.on('connection', (socket) => {
         phone: dbUser.phone,
         type: 'bet_stake',
         amount: stakeNum,
-        ref: `AVIATOR-${Date.now()}`,
+        ref: `AVIATOR-${Date.now()}-${slot||'1'}`,
       });
 
       // Update admin stats
@@ -1169,8 +1169,11 @@ io.on('connection', (socket) => {
       io.to('admins').emit('admin_stats', adminStats);
 
       // Register player in Aviator session
-      aviator.players[socket.id] = {
+      const playerKey = slot ? `${socket.id}_${slot}` : socket.id;
+      aviator.players[playerKey] = {
         userId: dbUser._id.toString(), // track userId for rewards
+        socketId: socket.id,
+        slot: slot,
         stake: stakeNum,
         autoCashout: autoCashout ? parseFloat(autoCashout) : null,
         cashedOut: false,
@@ -1178,18 +1181,19 @@ io.on('connection', (socket) => {
       };
 
       socket.emit('balance_update', { balance: updatedUser.balance });
-      socket.emit('aviator_bet_placed', { stake: stakeNum, autoCashout });
+      socket.emit('aviator_bet_placed', { stake: stakeNum, autoCashout, slot });
     } catch (err) {
       console.error('Aviator bet error:', err);
-      socket.emit('aviator_error', { message: 'Error placing bet.' });
+      socket.emit('aviator_error', { message: 'Error placing bet.', slot });
     }
   });
 
   // ── Aviator: manual cash-out during FLYING phase ──────────────
-  socket.on('aviator_cashout', async () => {
-    const player = aviator.players[socket.id];
+  socket.on('aviator_cashout', async ({ slot } = {}) => {
+    const playerKey = slot ? `${socket.id}_${slot}` : socket.id;
+    const player = aviator.players[playerKey];
     if (!player || player.cashedOut || aviator.phase !== 'flying') {
-      socket.emit('aviator_error', { message: 'Cannot cash out right now.' });
+      socket.emit('aviator_error', { message: 'Cannot cash out right now.', slot });
       return;
     }
     player.cashedOut = true;
@@ -1208,7 +1212,7 @@ io.on('connection', (socket) => {
           phone: updatedUser.phone,
           type: 'winnings',
           amount: winnings,
-          ref: `AVIATOR-WIN-${Date.now()}`
+          ref: `AVIATOR-WIN-${Date.now()}-${slot||'1'}`
         });
         socket.emit('balance_update', { balance: updatedUser.balance });
       }
@@ -1220,8 +1224,9 @@ io.on('connection', (socket) => {
       multiplier: player.cashoutMultiplier,
       stake: player.stake,
       winnings,
+      slot
     });
-    console.log(`✈️  Cashout: ${socket.id} @ ${player.cashoutMultiplier}x → ${formatLocalCurrency(winnings, socket.user?.countryId)}`);
+    console.log(`✈️  Cashout: ${socket.id} (${slot}) @ ${player.cashoutMultiplier}x → ${formatLocalCurrency(winnings, socket.user?.countryId)}`);
   });
 
   // Send current aviator state on connect
@@ -1233,7 +1238,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    delete aviator.players[socket.id];
+    Object.keys(aviator.players).forEach(key => {
+      if (aviator.players[key].socketId === socket.id || key === socket.id) {
+        delete aviator.players[key];
+      }
+    });
     console.log(`❌ Client disconnected: ${socket.id}`);
   });
 });
@@ -1309,13 +1318,13 @@ const startFlyingPhase = () => {
     aviator.multiplier = parseFloat((aviator.multiplier * 1.03).toFixed(2));
 
     // Auto-cashout for players who set a target
-    Object.entries(aviator.players).forEach(async ([sid, player]) => {
+    Object.entries(aviator.players).forEach(async ([playerKey, player]) => {
       if (!player.cashedOut && player.autoCashout && aviator.multiplier >= player.autoCashout) {
         player.cashedOut = true;
         player.cashoutMultiplier = aviator.multiplier;
         const winnings = parseFloat((player.stake * player.cashoutMultiplier).toFixed(2));
         
-        const sock = io.sockets.sockets.get(sid);
+        const sock = io.sockets.sockets.get(player.socketId || playerKey);
 
         try {
           if (player.userId) {
@@ -1329,7 +1338,7 @@ const startFlyingPhase = () => {
               phone: updatedUser.phone,
               type: 'winnings',
               amount: winnings,
-              ref: `AVIATOR-WIN-${Date.now()}`
+              ref: `AVIATOR-WIN-${Date.now()}-${player.slot||'1'}`
             });
             if (sock) {
               sock.emit('balance_update', { balance: updatedUser.balance });
@@ -1345,6 +1354,7 @@ const startFlyingPhase = () => {
             stake: player.stake,
             winnings,
             auto: true,
+            slot: player.slot
           });
         }
       }
