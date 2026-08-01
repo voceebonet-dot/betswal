@@ -926,7 +926,7 @@ export const ProfilePage = ({ setActiveSection }) => {
     if (!user) return;
     setLoading(true);
     setError('');
-    const token = localStorage.getItem('betswal_token');
+    const token = localStorage.getItem('jwt');
     fetch(`${API_URL}/api/user/history`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
