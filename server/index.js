@@ -1493,9 +1493,20 @@ app.post('/api/payhero/webhook', express.json(), async (req, res) => {
         }
         
         io.emit('balance_update_target', { userId: depositUser._id.toString(), balance: depositUser.balance });
+        io.emit('deposit_success', { userId: depositUser._id.toString(), amount, balance: depositUser.balance });
         sendSMS(depositUser.phone, `✅ Deposit of KSh ${amount} confirmed via Payhero. Balance: KSh ${depositUser.balance}.`);
       }
     } catch (err) { console.error('Webhook DB error:', err); }
+  } else if (isSuccess && event.response && event.response.ResultCode !== 0) {
+    let phone = (event.response.Phone || event.response.PhoneNumber || '').toString();
+    if (phone.startsWith('254')) phone = '+' + phone;
+    else if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
+    try {
+      const failedUser = await User.findOne({ phone }).lean();
+      if (failedUser) {
+         io.emit('deposit_failed', { userId: failedUser._id.toString(), reason: event.response.ResultDesc || 'Transaction Failed' });
+      }
+    } catch (err) { console.error('Webhook failed handler DB error:', err); }
   }
   res.sendStatus(200);
 });

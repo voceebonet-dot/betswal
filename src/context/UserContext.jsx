@@ -216,6 +216,26 @@ export const UserProvider = ({ children }) => {
       alert(`❌ Withdrawal Failed: ${message}`);
     };
 
+    const onDepositSuccess = ({ userId, amount }) => {
+      if (user && user.userId === userId) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Deposit Successful! 💳', { body: `KSh ${amount} has been added to your account.` });
+        } else {
+          alert(`✅ Deposit of KSh ${amount} was successful!`);
+        }
+      }
+    };
+
+    const onDepositFailed = ({ userId, reason }) => {
+      if (user && user.userId === userId) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Deposit Failed ❌', { body: reason });
+        } else {
+          alert(`❌ Deposit Failed: ${reason}`);
+        }
+      }
+    };
+
     socket.on('withdrawal_approved', onWithdrawalApproved);
     socket.on('withdrawal_rejected', onWithdrawalRejected);
     socket.on('withdrawal_success', onWithdrawalSuccess);
@@ -224,6 +244,8 @@ export const UserProvider = ({ children }) => {
     socket.on('promo_broadcast', onPromoBroadcast);
     socket.on('balance_update', onBalanceUpdate);
     socket.on('balance_update_target', onBalanceUpdateTarget);
+    socket.on('deposit_success', onDepositSuccess);
+    socket.on('deposit_failed', onDepositFailed);
 
     return () => {
       socket.off('withdrawal_approved', onWithdrawalApproved);
@@ -234,6 +256,8 @@ export const UserProvider = ({ children }) => {
       socket.off('promo_broadcast', onPromoBroadcast);
       socket.off('balance_update', onBalanceUpdate);
       socket.off('balance_update_target', onBalanceUpdateTarget);
+      socket.off('deposit_success', onDepositSuccess);
+      socket.off('deposit_failed', onDepositFailed);
     };
   }, [socket, user]);
 
