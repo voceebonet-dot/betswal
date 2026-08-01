@@ -874,9 +874,39 @@ io.on('connection', (socket) => {
       return socket.emit('bet_error', { message: 'Invalid bet selection.' });
     }
     
-    // Validate each bet has valid odds
-    const isValid = bets.every(b => b && typeof b.odds === 'number' && b.odds >= 1.01);
-    if (!isValid) return socket.emit('bet_error', { message: 'Invalid odds detected in betslip.' });
+    // Validate against server's source of truth for matches
+    const baseData = (ODDS_API_KEY && realSportsCache.length > 0) ? realSportsCache : highlightMatches;
+    
+    for (let b of bets) {
+      if (!b || typeof b.odds !== 'number' || b.odds < 1.01) {
+        return socket.emit('bet_error', { message: 'Invalid odds detected in betslip.' });
+      }
+
+      // Look up match in all available datasets
+      const match = baseData.find(m => m.id === b.matchId) || 
+                    virtualSports.find(m => m.id === b.matchId) || 
+                    fastaMarkets.find(m => m.id === b.matchId) ||
+                    liveMatches.find(m => m.id === b.matchId);
+
+      if (!match) {
+        return socket.emit('bet_error', { message: `Match not found or expired: ${b.home} vs ${b.away}` });
+      }
+
+      // Check if match has already started (for pre-match)
+      if (match.timestamp && Date.now() >= match.timestamp) {
+        return socket.emit('bet_error', { message: `Match has already started: ${b.home} vs ${b.away}` });
+      }
+
+      // Reject bets on games that are currently live
+      if (match.status === 'live' || liveMatches.some(m => m.id === b.matchId)) {
+        return socket.emit('bet_error', { message: `Live betting is disabled: ${b.home} vs ${b.away} has already started.` });
+      }
+      
+      // Prevent betting on finished matches
+      if (match.status === 'finished') {
+        return socket.emit('bet_error', { message: `Match is already finished: ${b.home} vs ${b.away}` });
+      }
+    }
 
     const totalOdds = bets.reduce((acc, b) => acc * b.odds, 1);
     const possibleWin = parseFloat((totalOdds * stakeNum).toFixed(2));

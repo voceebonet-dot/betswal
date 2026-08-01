@@ -72,21 +72,10 @@ const LivePanel = ({ bets, toggleBet }) => {
           </div>
 
           {/* Odds */}
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {match.odds.map((odd, idx) => {
-              const type = betTypes[idx];
-              const prev = prevOdds[match.id]?.[idx];
-              return (
-                <OddsBtn
-                  key={idx}
-                  odd={odd}
-                  prevOdd={prev}
-                  selected={bets.some(b => b.matchId === match.id && b.type === type)}
-                  label={type}
-                  onClick={() => toggleBet(match, type, odd)}
-                />
-              );
-            })}
+          <div style={{ display: 'flex', gap: '0.5rem', width: '150px', justifyContent: 'center' }}>
+             <div style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700, backgroundColor: 'rgba(255,255,255,0.05)', padding: '8px 16px', borderRadius: '4px', width: '100%', textAlign: 'center' }}>
+              🔒 Started
+            </div>
           </div>
         </div>
       ))}
@@ -167,27 +156,29 @@ const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
                   const type = betTypes[idx];
                   const prev = prevOdds[match.id]?.[idx];
                   const isSelected = bets.some(b => b.matchId === match.id && b.type === type);
+                  const isStarted = match.timestamp && Date.now() >= match.timestamp;
                   return (
                     <button
                       key={idx}
-                      onClick={() => toggleBet(match, type, odd)}
+                      disabled={isStarted}
+                      onClick={() => !isStarted && toggleBet(match, type, odd)}
                       style={{
                         flex: 1,
                         padding: '8px 4px',
                         borderRadius: '8px',
                         border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
-                        backgroundColor: isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.06)',
-                        color: isSelected ? '#000' : '#fff',
+                        backgroundColor: isStarted ? 'rgba(255,255,255,0.02)' : isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.06)',
+                        color: isStarted ? 'rgba(255,255,255,0.2)' : isSelected ? '#000' : '#fff',
                         fontWeight: 700,
                         fontSize: '13px',
-                        cursor: 'pointer',
+                        cursor: isStarted ? 'not-allowed' : 'pointer',
                         transition: 'all 0.15s',
                         textAlign: 'center',
                       }}
-                      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.11)'; }}
-                      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
+                      onMouseEnter={e => { if (!isSelected && !isStarted) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.11)'; }}
+                      onMouseLeave={e => { if (!isSelected && !isStarted) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
                     >
-                      {odd.toFixed(2)}
+                      {isStarted ? '🔒' : odd.toFixed(2)}
                     </button>
                   );
                 })}
