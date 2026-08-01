@@ -51,24 +51,34 @@ export const UserProvider = ({ children }) => {
   // ── Rehydrate Session ────────────────────────────────────────────────────
   useEffect(() => {
     const token = localStorage.getItem('jwt');
-    if (token) {
-      fetch(`${API_URL}/user/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.ok) {
-          setUser(data.user);
-          setWallet(data.user.balance);
-          if (data.user.countryId) setCountryCode(data.user.countryId);
-        } else {
-          localStorage.removeItem('jwt');
-          setUser(null);
-        }
-      })
-      .catch(console.error);
-    }
+    if (!token) return;
+    fetch(`${API_URL}/user/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.ok) {
+        setUser(data.user);
+        setWallet(data.user.balance);
+        if (data.user.countryId) setCountryCode(data.user.countryId);
+      } else {
+        localStorage.removeItem('jwt');
+        setUser(null);
+      }
+    })
+    .catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reconnect socket once it's ready so server can join user to their private
+  // room and push balance_update immediately on page load
+  const _socketReconnected = React.useRef(false);
+  useEffect(() => {
+    if (socket && !_socketReconnected.current && localStorage.getItem('jwt')) {
+      _socketReconnected.current = true;
+      socket.disconnect().connect();
+    }
+  }, [socket]);
 
   const login = async (phone, password) => {
     try {
