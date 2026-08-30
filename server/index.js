@@ -231,13 +231,13 @@ let matchIdCounter = 1;
 // ── The Odds API Integration ────────────────────────────────────────
 let realSportsCache = [];
 let lastOddsApiFetch = 0;
-const FETCH_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const FETCH_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes — refresh often so today's games stay current
 
 const fetchRealSportsData = async () => {
   if (!FOOTBALL_DATA_API_KEY) return;
   try {
     console.log('🔄 Fetching real sports data from football-data.org...');
-    // Fetch matches for the next 10 days
+    // Fetch matches for today + next 10 days
     const d1 = new Date();
     const d2 = new Date();
     d2.setDate(d2.getDate() + 10);
@@ -251,18 +251,32 @@ const fetchRealSportsData = async () => {
 
     const matches = res.data.matches;
     if (matches && matches.length > 0) {
-      realSportsCache = matches.slice(0, 50).map((m, i) => {
+      const now = Date.now();
+
+      // Only keep upcoming / scheduled matches — drop FINISHED and IN_PLAY
+      const upcoming = matches
+        .filter(m => {
+          const status = (m.status || '').toUpperCase();
+          if (status === 'FINISHED' || status === 'IN_PLAY' || status === 'PAUSED') return false;
+          // Also drop matches whose kick-off was more than 2 hours ago (safety net for TIMED matches that are actually running)
+          const kickoff = new Date(m.utcDate).getTime();
+          return kickoff > now - 2 * 60 * 60 * 1000;
+        })
+        // Sort ascending so the soonest games come first
+        .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+
+      realSportsCache = upcoming.slice(0, 50).map((m, i) => {
         // football-data.org free tier doesn't provide odds, so we simulate realistic pre-match odds
         const odd1 = parseFloat((Math.random() * 1.5 + 1.2).toFixed(2));
         const oddX = parseFloat((Math.random() * 2 + 2.5).toFixed(2));
         const odd2 = parseFloat((Math.random() * 3 + 1.8).toFixed(2));
 
-        // Format date "DD/MM, HH:MM"
+        // Format date "DD/MM, HH:MM" using local time
         const d = new Date(m.utcDate);
-        const day = String(d.getDate()).padStart(2, '0');
+        const day   = String(d.getDate()).padStart(2, '0');
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const hours = String(d.getHours()).padStart(2, '0');
-        const mins = String(d.getMinutes()).padStart(2, '0');
+        const mins  = String(d.getMinutes()).padStart(2, '0');
 
         return {
           id: m.id || (5000 + i), // use API id or offset ID
@@ -276,7 +290,7 @@ const fetchRealSportsData = async () => {
         };
       });
       lastOddsApiFetch = Date.now();
-      console.log(`✅ Cached ${realSportsCache.length} real matches from football-data.org.`);
+      console.log(`✅ Cached ${realSportsCache.length} upcoming matches from football-data.org (${matches.length} total fetched).`);
     }
   } catch (err) {
     console.error('❌ Error fetching from football-data.org:', err.response?.data || err.message);
@@ -452,11 +466,18 @@ setInterval(() => {
 // TICK: HIGHLIGHT ODDS — gentle drift every 8 seconds
 // ─────────────────────────────────────────────────────────────────
 setInterval(() => {
+  // Evict matches from cache that have passed kick-off + 2h (between fetches)
+  if (realSportsCache.length > 0) {
+    const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+    realSportsCache = realSportsCache.filter(m => !m.timestamp || m.timestamp > cutoff);
+  }
+
   const baseData = (FOOTBALL_DATA_API_KEY && realSportsCache.length > 0) ? realSportsCache : highlightMatches;
   
-  // Filter for current and future games (started less than 2 hours ago)
-  const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
-  const filteredData = baseData.filter(m => !m.timestamp || m.timestamp > twoHoursAgo);
+  // For realSportsCache, timestamps are kick-off times so only show upcoming/just-started games
+  // For fallback highlightMatches that have no timestamp, always show them
+  const now = Date.now();
+  const filteredData = baseData.filter(m => !m.timestamp || m.timestamp > now - 2 * 60 * 60 * 1000);
 
   const currentHighlights = filteredData.map(match => ({
     ...match,
