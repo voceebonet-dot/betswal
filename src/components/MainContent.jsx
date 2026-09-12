@@ -85,10 +85,36 @@ const LivePanel = ({ bets, toggleBet }) => {
 };
 
 // ── Highlights panel (gentle pre-match odds drift) ────────────────────────────
-const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
+const MARKET_TYPES = [
+  { id: '1x2',   label: '1X2',         headers: ['1', 'X', '2'] },
+  { id: 'ou25',  label: 'Over/Under 2.5', headers: ['Over', 'Under'] },
+  { id: 'ou15',  label: 'Over/Under 1.5', headers: ['Over', 'Under'] },
+  { id: 'gg',    label: 'GG / NG',      headers: ['GG', 'NG'] },
+  { id: 'dc',    label: 'Double Chance', headers: ['1X', 'X2', '12'] },
+  { id: 'ht',    label: 'HT Result',    headers: ['1', 'X', '2'] },
+];
+
+// Deterministic pseudo-odds seeded from match id + market
+const seedOdds = (matchId, market, idx) => {
+  const h = (matchId + market + idx).split('').reduce((a, c) => a * 31 + c.charCodeAt(0), 7);
+  const bases = {
+    '1x2':  [[1.5, 3.5], [2.8, 4.2], [2.2, 5.0]],
+    'ou25': [[1.65, 2.4], [1.65, 2.4]],
+    'ou15': [[1.15, 5.5], [1.15, 5.5]],
+    'gg':   [[1.7, 2.1], [1.7, 2.1]],
+    'dc':   [[1.2, 2.8], [1.2, 2.8], [1.35, 2.5]],
+    'ht':   [[2.2, 3.4], [2.6, 3.8], [3.0, 5.0]],
+  };
+  const range = (bases[market] || bases['1x2'])[idx] || [1.5, 4.0];
+  const raw = range[0] + ((Math.abs(h) % 1000) / 1000) * (range[1] - range[0]);
+  return Math.round(raw * 100) / 100;
+};
+
+const HighlightsPanel = ({ activeSport, bets, toggleBet, setActiveSection }) => {
   const { highlights } = useSocket();
   const prevRef = useRef({});
   const [prevOdds, setPrevOdds] = useState({});
+  const [activeMarket, setActiveMarket] = useState('1x2');
 
   useEffect(() => {
     const newPrev = {};
@@ -97,9 +123,8 @@ const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
     highlights.forEach(m => { prevRef.current[m.id] = m.odds; });
   }, [highlights]);
 
-  const betTypes = ['1', 'X', '2'];
-
   const filteredHighlights = highlights.filter(m => !activeSport || m.sport === activeSport || (activeSport === 'Soccer' && !m.sport));
+  const marketDef = MARKET_TYPES.find(m => m.id === activeMarket) || MARKET_TYPES[0];
 
   if (!filteredHighlights.length) return (
     <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', backgroundColor: 'var(--bg-panel)', borderRadius: '12px', marginTop: '1rem' }}>
@@ -109,23 +134,44 @@ const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
     </div>
   );
 
-  const getSportIcon = (sport) => {
-    switch (sport) {
-      case 'Basketball': return '🏀';
-      case 'Tennis': return '🎾';
-      case 'Table Tennis': return '🏓';
-      case 'Boxing': return '🥊';
-      case 'Rugby': return '🏉';
-      case 'eSoccer': return '🎮';
-      default: return '⚽';
-    }
-  };
-
   return (
     <div>
+      {/* ── Market switcher bar ── */}
+      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', scrollbarWidth: 'none', marginBottom: '8px', paddingBottom: '4px' }}>
+        {MARKET_TYPES.map(m => (
+          <button
+            key={m.id}
+            onClick={() => setActiveMarket(m.id)}
+            style={{
+              flexShrink: 0,
+              padding: '5px 12px',
+              borderRadius: '20px',
+              border: activeMarket === m.id ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.1)',
+              backgroundColor: activeMarket === m.id ? 'rgba(134,196,57,0.18)' : 'rgba(255,255,255,0.04)',
+              color: activeMarket === m.id ? 'var(--primary)' : 'var(--text-muted)',
+              fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+              transition: 'all 0.15s',
+            }}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Column headers ── */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: '4px', marginBottom: '4px', gap: '6px' }}>
+        <div style={{ flex: 1 }} />
+        {marketDef.headers.map((h, i) => (
+          <div key={i} style={{ width: `${Math.floor(160 / marketDef.headers.length)}px`, textAlign: 'center', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
+        ))}
+        <div style={{ width: '64px' }} />
+      </div>
+
       {filteredHighlights.map(match => {
-        const marketsCount = Math.floor(Math.random() * 15) + 20; // simulate market count 20-35
+        const marketsCount = Math.floor(Math.random() * 15) + 20;
         const isLive = match.status === 'live' || match.minute > 0;
+        const isStarted = match.timestamp && Date.now() >= match.timestamp;
+        const numCols = marketDef.headers.length;
         return (
           <div key={match.id} className="match-row" style={{ display: 'block', padding: '10px 12px' }}>
             {/* Top: Teams + Time */}
@@ -137,12 +183,8 @@ const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
               <div style={{ textAlign: 'right', fontSize: '11px', flexShrink: 0, marginLeft: '1rem' }}>
                 {isLive ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
-                      {match.half || '2nd half'}
-                    </span>
-                    <span style={{ color: '#e74c3c', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                      {match.minute ? `${match.minute}'` : '73:13\''}
-                    </span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{match.half || '2nd half'}</span>
+                    <span style={{ color: '#e74c3c', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{match.minute ? `${match.minute}'` : "73'"}</span>
                   </div>
                 ) : (
                   <span style={{ color: 'var(--text-muted)' }}>{match.date}</span>
@@ -153,16 +195,17 @@ const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
             {/* Bottom: Odds pills + Markets link */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ display: 'flex', gap: '6px', flex: 1 }}>
-                {match.odds.map((odd, idx) => {
-                  const type = betTypes[idx];
-                  const prev = prevOdds[match.id]?.[idx];
-                  const isSelected = bets.some(b => b.matchId === match.id && b.type === type);
-                  const isStarted = match.timestamp && Date.now() >= match.timestamp;
+                {marketDef.headers.map((header, idx) => {
+                  const odd = activeMarket === '1x2'
+                    ? (match.odds[idx] || seedOdds(match.id, activeMarket, idx))
+                    : seedOdds(match.id, activeMarket, idx);
+                  const betType = `${activeMarket}:${header}`;
+                  const isSelected = bets.some(b => b.matchId === match.id && b.type === betType);
                   return (
                     <button
                       key={idx}
                       disabled={isStarted}
-                      onClick={() => !isStarted && toggleBet(match, type, odd)}
+                      onClick={() => !isStarted && toggleBet(match, betType, odd)}
                       style={{
                         flex: 1,
                         padding: '8px 4px',
@@ -175,6 +218,7 @@ const HighlightsPanel = ({ activeSport, bets, toggleBet }) => {
                         cursor: isStarted ? 'not-allowed' : 'pointer',
                         transition: 'all 0.15s',
                         textAlign: 'center',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
                       }}
                       onMouseEnter={e => { if (!isSelected && !isStarted) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.11)'; }}
                       onMouseLeave={e => { if (!isSelected && !isStarted) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
@@ -475,7 +519,7 @@ const SportsContent = ({ activeSport, bets, toggleBet, activeSection, setActiveS
       {activeSubNav === 'Jackpots' && <JackpotPanel setActiveJackpot={setActiveJackpot} />}
       {activeSubNav === 'Aviator'  && <AviatorGame />}
       {['Highlights','Upcoming','Countries','Zoom Soccer','Turbo','Today','1x2'].includes(activeSubNav) && (
-        <HighlightsPanel activeSport={activeSport} bets={bets} toggleBet={toggleBet} />
+        <HighlightsPanel activeSport={activeSport} bets={bets} toggleBet={toggleBet} setActiveSection={setActiveSection} />
       )}
 
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
