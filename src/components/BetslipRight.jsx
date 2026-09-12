@@ -187,7 +187,7 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
 
             {/* Status message */}
             {message && (
-              <div style={{ background: msgColor + '18', border: `1px solid ${msgColor}44`, padding: '8px 12px', borderRadius: '8px', fontSize: '12px', color: msgColor, textAlign: 'center', fontWeight: 600 }}>
+              <div className="animate-slide-in-right" style={{ background: msgColor + '18', border: `1px solid ${msgColor}44`, padding: '10px 14px', borderRadius: '10px', fontSize: '13px', color: msgColor, display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, boxShadow: `0 4px 12px ${msgColor}20` }}>
                 {message}
               </div>
             )}
@@ -212,10 +212,18 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
 
             {/* Empty state */}
             {bets.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'rgba(255,255,255,0.2)' }}>
-                <div style={{ fontSize: '40px', marginBottom: '12px' }}>🎯</div>
-                <div style={{ fontWeight: 600, fontSize: '14px', color: 'rgba(255,255,255,0.4)', marginBottom: '6px' }}>Your betslip is empty</div>
-                <div style={{ fontSize: '12px' }}>Click any odds button to add a selection</div>
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'rgba(255,255,255,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(134,196,57,0.15) 0%, transparent 70%)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', animation: 'pulseHeartbeat 3s infinite' }}>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(134,196,57,0.6)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                </div>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff', marginBottom: '8px', letterSpacing: '0.3px' }}>Your betslip is empty</div>
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', lineHeight: '1.5' }}>Make your predictions by clicking on the odds.</div>
               </div>
             ) : (
               <>
@@ -227,7 +235,7 @@ const BetslipRight = ({ bets, clearBets, removeBet }) => {
 
                 {/* Bet items */}
                 {bets.map(bet => (
-                  <div key={bet.matchId} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', padding: '10px 12px', borderRadius: '10px', position: 'relative', transition: 'all 0.2s' }}>
+                  <div key={bet.matchId} className="animate-slide-in-right" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', padding: '10px 12px', borderRadius: '10px', position: 'relative', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                     <button onClick={() => removeBet(bet.matchId)} style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(220,53,69,0.12)', border: 'none', color: '#dc3545', width: '20px', height: '20px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800, transition: 'all 0.2s' }}>✕</button>
                     <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginBottom: '4px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
                       1X2 — {bet.type === '1' ? 'Home Win' : bet.type === '2' ? 'Away Win' : 'Draw'}
