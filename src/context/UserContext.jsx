@@ -290,7 +290,31 @@ export const UserProvider = ({ children }) => {
       });
       const data = await res.json();
       if (data.ok) {
-        // Balance will be updated automatically via webhook & websocket
+        // Start polling for verification
+        if (data.ref) {
+          let attempts = 0;
+          const pollInterval = setInterval(async () => {
+            attempts++;
+            if (attempts > 20) {
+              clearInterval(pollInterval);
+              return;
+            }
+            try {
+              const verifyRes = await fetch(`${API_URL}/deposit/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ local_id: data.ref })
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.status !== 'pending') {
+                clearInterval(pollInterval);
+                // Balance will be updated automatically via webhook & websocket,
+                // but this acts as a failsafe
+              }
+            } catch(e) {}
+          }, 3000);
+        }
+        
         return { ok: true, message: data.message };
       }
       return { ok: false, error: data.error };

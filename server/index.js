@@ -13,11 +13,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { connectDB, User, Bet, Transaction, SharedBetslip, Withdrawal, JackpotTicket, Kyc } = require('./db');
 const axios = require('axios');
-const PAYHERO_API_USERNAME = process.env.PAYHERO_API_USERNAME || '';
-const PAYHERO_API_PASSWORD = process.env.PAYHERO_API_PASSWORD || '';
-const PAYHERO_AUTH_TOKEN = Buffer.from(`${PAYHERO_API_USERNAME}:${PAYHERO_API_PASSWORD}`).toString('base64');
-const PAYHERO_CHANNEL_ID = process.env.PAYHERO_CHANNEL_ID || '';
-const PAYHERO_CALLBACK_URL = process.env.PAYHERO_CALLBACK_URL || '';
+const NESTLINK_API_SECRET = process.env.NESTLINK_API_SECRET || '';
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -1573,78 +1569,87 @@ app.get('/api/user/me', async (req, res) => {
     res.status(500).json({ ok: false, error: 'Server error' });
   }
 });
-// Initiate Payhero M-Pesa STK Push
+// Initiate Nestlink M-Pesa STK Push
 app.post('/api/deposit', async (req, res) => {
   const { amount, phone } = req.body;
   if (!amount || amount <= 0) return res.status(400).json({ ok: false, error: 'Invalid amount' });
   
-  // Format phone number to start with 0 for Payhero (e.g. 07XXXXXXXX)
+  // Format phone number for Nestlink (e.g. 2547XXXXXXXX)
   let formattedPhone = phone.trim().replace(/\s+/g, '');
-  if (formattedPhone.startsWith('+254')) formattedPhone = '0' + formattedPhone.substring(4);
-  if (formattedPhone.startsWith('254')) formattedPhone = '0' + formattedPhone.substring(3);
+  if (formattedPhone.startsWith('+')) formattedPhone = formattedPhone.substring(1);
+  if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.substring(1);
   
   const ref = `DEP-${Date.now()}`;
 
   try {
     const payload = {
+      phone: formattedPhone,
       amount: amount,
-      phone_number: formattedPhone,
-      channel_id: parseInt(PAYHERO_CHANNEL_ID),
-      provider: 'm-pesa',
-      external_reference: ref,
-      callback_url: PAYHERO_CALLBACK_URL
+      local_id: ref,
+      transaction_desc: 'BetsWal Deposit'
     };
-    console.log('Payhero Request:', JSON.stringify(payload));
-    console.log('Payhero Auth (first 20 chars):', PAYHERO_AUTH_TOKEN.substring(0, 20));
-    const response = await axios.post('https://backend.payhero.co.ke/api/v2/payments', payload, {
+    
+    console.log('Nestlink Request:', JSON.stringify(payload));
+    
+    const response = await axios.post('https://api.nestlink.co.ke/runPrompt', payload, {
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${PAYHERO_AUTH_TOKEN}` 
+        'Api-Secret': NESTLINK_API_SECRET
       }
     });
 
-    console.log('Payhero Response:', JSON.stringify(response.data));
-    if (response.data && (response.data.success || response.data.status === 'queued' || response.data.status === 'pending')) {
-      return res.json({ ok: true, ref, message: 'Processing... Check your phone for the M-Pesa PIN prompt to complete your deposit.' });
+    console.log('Nestlink Response:', JSON.stringify(response.data));
+    
+    if (response.data && response.data.status) {
+      return res.json({ 
+        ok: true, 
+        ref, 
+        message: 'Processing... Check your phone for the M-Pesa PIN prompt to complete your deposit.',
+        confirmationLink: response.data.data?.ConfirmationLink 
+      });
     } else {
-      console.error("Payhero API Error:", response.data);
-      return res.json({ ok: false, error: 'Payment gateway error' });
+      console.error("Nestlink API Error:", response.data);
+      return res.json({ ok: false, error: response.data?.msg || 'Payment gateway error' });
     }
   } catch(e) {
-    console.error("Payhero Initialize Error:", e.response?.data || e.message);
+    console.error("Nestlink Initialize Error:", e.response?.data || e.message);
     return res.json({ ok: false, error: 'Failed to initialize payment' });
   }
 });
 
-// Payhero Webhook for successful deposits
-app.post('/api/payhero/webhook', express.json(), async (req, res) => {
-  const event = req.body;
-  console.log("Payhero Webhook Received:", JSON.stringify(event));
-  
-  const isSuccess = event.success || event.status;
-  if (isSuccess && event.response && event.response.ResultCode === 0) {
-    const amount = event.response.Amount;
-    let phone = (event.response.Phone || event.response.PhoneNumber || '').toString();
-    if (phone.startsWith('254')) phone = '+' + phone;
-    else if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
-    const ref = event.response.ExternalReference;
+// Endpoint to verify deposit status manually (fallback if webhook is delayed)
+app.post('/api/deposit/verify', async (req, res) => {
+  const { local_id } = req.body;
+  if (!local_id) return res.status(400).json({ ok: false, error: 'Missing local_id' });
 
-    try {
-      const exists = await Transaction.findOne({ ref });
-      if (exists) return res.sendStatus(200);
-      
-      let userQuery = { phone };
-
-      const prevUser = await User.findOne(userQuery).lean();
-      if (!prevUser) {
-          console.log('Webhook user not found for phone', phone);
-          return res.sendStatus(200);
+  try {
+    const payload = { local_id };
+    const response = await axios.post('https://api.nestlink.co.ke/trackTransaction', payload, {
+      headers: { 
+        'Content-Type': 'application/json',
+        'Api-Secret': NESTLINK_API_SECRET
       }
+    });
 
+    const data = response.data;
+    if (data.status && data.data && data.data.paid) {
+      // It's paid! Let's process it if not already processed
+      const result = data.data.result;
+      const ref = local_id;
+      const amount = result.amount;
+      let phone = result.phone.toString();
+      if (phone.startsWith('254')) phone = '+' + phone;
+
+      const exists = await Transaction.findOne({ ref });
+      if (exists) return res.json({ ok: true, message: 'Already processed' });
+      
+      const prevUser = await User.findOne({ phone }).lean();
+      if (!prevUser) return res.json({ ok: false, error: 'User not found for phone' });
+      
       const wasFirstDeposit = prevUser.totalDeposited === 0;
 
       const depositUser = await User.findOneAndUpdate(
-        userQuery,
+        { phone },
         { $inc: { balance: amount, totalDeposited: amount } },
         { returnDocument: 'after' }
       );
@@ -1667,19 +1672,103 @@ app.post('/api/payhero/webhook', express.json(), async (req, res) => {
         
         io.emit('balance_update_target', { userId: depositUser._id.toString(), balance: depositUser.balance });
         io.emit('deposit_success', { userId: depositUser._id.toString(), amount, balance: depositUser.balance });
-        sendSMS(depositUser.phone, `✅ Deposit of ${formatLocalCurrency(amount, depositUser.countryId)} confirmed via Payhero. Balance: ${formatLocalCurrency(depositUser.balance, depositUser.countryId)}.`);
+        sendSMS(depositUser.phone, `✅ Deposit of ${formatLocalCurrency(amount, depositUser.countryId)} confirmed. Balance: ${formatLocalCurrency(depositUser.balance, depositUser.countryId)}.`);
+        
+        return res.json({ ok: true, message: 'Deposit successful', balance: depositUser.balance });
       }
-    } catch (err) { console.error('Webhook DB error:', err); }
-  } else if (isSuccess && event.response && event.response.ResultCode !== 0) {
-    let phone = (event.response.Phone || event.response.PhoneNumber || '').toString();
-    if (phone.startsWith('254')) phone = '+' + phone;
-    else if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
-    try {
-      const failedUser = await User.findOne({ phone }).lean();
-      if (failedUser) {
-         io.emit('deposit_failed', { userId: failedUser._id.toString(), reason: event.response.ResultDesc || 'Transaction Failed' });
-      }
-    } catch (err) { console.error('Webhook failed handler DB error:', err); }
+    }
+    
+    return res.json({ ok: true, status: 'pending', message: 'Transaction still pending' });
+
+  } catch(e) {
+    console.error("Nestlink Verify Error:", e.response?.data || e.message);
+    return res.json({ ok: false, error: 'Failed to verify payment' });
+  }
+});
+
+// Nestlink Webhook for successful deposits
+app.post('/api/nestlink/webhook', express.json(), async (req, res) => {
+  const event = req.body;
+  console.log("Nestlink Webhook Received:", JSON.stringify(event));
+  
+  // The webhook payload might be wrapped in 'data' if it's from triggerWebhook, or it might be the root object.
+  const payload = event.data || event;
+  
+  if (payload.paid === true) {
+    const resultCode = payload.result_code !== undefined ? payload.result_code : payload.result?.result_code;
+    
+    if (resultCode === 0) {
+      const result = payload.result || {};
+      const amount = result.amount || payload.amount;
+      let phone = (result.phone_number || result.phone || '').toString();
+      if (phone.startsWith('254')) phone = '+' + phone;
+      else if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
+      
+      const ref = payload.local_id || payload.ld_id;
+
+      try {
+        const exists = await Transaction.findOne({ ref });
+        if (exists) return res.sendStatus(200);
+        
+        let userQuery = { phone };
+
+        const prevUser = await User.findOne(userQuery).lean();
+        if (!prevUser) {
+            console.log('Webhook user not found for phone', phone);
+            return res.sendStatus(200);
+        }
+
+        const wasFirstDeposit = prevUser.totalDeposited === 0;
+
+        const depositUser = await User.findOneAndUpdate(
+          userQuery,
+          { $inc: { balance: amount, totalDeposited: amount } },
+          { returnDocument: 'after' }
+        );
+
+        if (depositUser) {
+          await Transaction.create({ userId: depositUser._id, phone: depositUser.phone, type: 'deposit', amount, ref });
+          
+          if (wasFirstDeposit && depositUser.referredBy) {
+            const referrer = await User.findOneAndUpdate(
+              { referralCode: depositUser.referredBy },
+              { $inc: { bonusBalance: 50, referralCount: 1, referralEarned: 50 } },
+              { returnDocument: 'after' }
+            );
+            if (referrer) {
+              await Transaction.create({ userId: referrer._id, phone: referrer.phone, type: 'referral_bonus', amount: 50, ref: `REF-${depositUser.phone}` });
+              io.emit('bonus_update_target', { userId: referrer._id.toString(), bonusBalance: referrer.bonusBalance });
+              sendSMS(referrer.phone, `🎉 Your referral made their first deposit! ${formatLocalCurrency(50, referrer.countryId)} bonus added to your account.`);
+            }
+          }
+          
+          io.emit('balance_update_target', { userId: depositUser._id.toString(), balance: depositUser.balance });
+          io.emit('deposit_success', { userId: depositUser._id.toString(), amount, balance: depositUser.balance });
+          sendSMS(depositUser.phone, `✅ Deposit of ${formatLocalCurrency(amount, depositUser.countryId)} confirmed via Nestlink. Balance: ${formatLocalCurrency(depositUser.balance, depositUser.countryId)}.`);
+        }
+      } catch (err) { console.error('Webhook DB error:', err); }
+    }
+  } else if (payload.paid === false || payload.status === false) {
+    const resultCode = payload.result_code !== undefined ? payload.result_code : payload.result?.result_code;
+    const result = payload.result || {};
+    let phone = (result.phone_number || result.phone || '').toString();
+    
+    if (phone) {
+      if (phone.startsWith('254')) phone = '+' + phone;
+      else if (phone.startsWith('0')) phone = '+254' + phone.substring(1);
+      
+      let errorReason = result.msg || result.result_desc || 'Transaction Failed';
+      if (resultCode == 1) errorReason = 'Insufficient Balance';
+      else if (resultCode == 1032) errorReason = 'Request Cancelled by User';
+      else if (resultCode == 2001) errorReason = 'Invalid Initiator Information (Wrong PIN)';
+
+      try {
+        const failedUser = await User.findOne({ phone }).lean();
+        if (failedUser) {
+           io.emit('deposit_failed', { userId: failedUser._id.toString(), reason: errorReason });
+        }
+      } catch (err) { console.error('Webhook failed handler DB error:', err); }
+    }
   }
   res.sendStatus(200);
 });
