@@ -107,6 +107,13 @@ a { text-decoration: none; color: inherit; }
   margin: 0 auto;
 }
 
+.sidebar-left-container, .betslip-right-container {
+  position: sticky;
+  top: 76px;
+  height: calc(100vh - 90px);
+  overflow-y: auto;
+}
+
 /* Glass panel utility */
 .glass-panel {
   background: rgba(23, 33, 43, 0.65);
