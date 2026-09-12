@@ -51,9 +51,9 @@ const Leaderboard = () => {
               {medal(i)}
             </span>
             <span style={{ fontSize: '14px' }}>{w.flag}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontWeight: 600, letterSpacing: '0.3px' }}>{w.phone}</div>
-              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginTop: '1px' }}>{w.game}</div>
+            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontWeight: 600, letterSpacing: '0.3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.phone}</div>
+              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.game}</div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: '12px', fontWeight: 800, color: '#86c439', textShadow: i === 0 ? '0 0 8px rgba(134,196,57,0.5)' : 'none' }}>
