@@ -5,7 +5,6 @@ try {
 }
 const express = require('express');
 const http = require('http');
-const twilio = require('twilio');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -230,7 +229,6 @@ let matchIdCounter = 1;
 
 // ── The Odds API Integration ────────────────────────────────────────
 let realSportsCache = [];
-let lastOddsApiFetch = 0;
 const FETCH_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes — refresh often so today's games stay current
 
 const fetchRealSportsData = async () => {
@@ -289,7 +287,6 @@ const fetchRealSportsData = async () => {
           odds: [odd1, oddX, odd2]
         };
       });
-      lastOddsApiFetch = Date.now();
       console.log(`✅ Cached ${realSportsCache.length} upcoming matches from football-data.org (${matches.length} total fetched).`);
     }
   } catch (err) {
@@ -345,7 +342,6 @@ let jackpot = {
 };
 
 // 4. Shared betslip store (in-memory, keyed by code)
-const sharedBetslips = {};
 
 // 4.5. Chat history store
 const chatMessages = [];
@@ -598,7 +594,7 @@ io.on('connection', (socket) => {
     try {
       const u = await User.findById(socket.user.userId).lean();
       if (u) socket.emit('balance_update', { balance: u.balance });
-    } catch (e) { /* ignore */ }
+    } catch (_e) { /* ignore */ }
   });
 
   // ── Chat System ──────────────────────────────────────────────
@@ -645,7 +641,7 @@ io.on('connection', (socket) => {
     if (bet) bet.status = status;
     // Persist to MongoDB and credit winnings if Won
     try {
-      const dbBet = await Bet.findOneAndUpdate({ ticketRef }, { status }, { returnDocument: 'after' });
+      const dbBet = await Bet.findOneAndUpdate({ ticketRef }, { status }, { new: true });
       if (dbBet && dbBet.userId) {
         if (status === 'Won') {
           await User.findByIdAndUpdate(dbBet.userId, {
@@ -718,7 +714,7 @@ io.on('connection', (socket) => {
         const w = await Withdrawal.findOneAndUpdate({ reqId }, { status: 'Rejected' });
         if (w && w.userId) {
           // Refund user
-          const u = await User.findByIdAndUpdate(w.userId, { $inc: { balance: w.amount } }, { returnDocument: 'after' });
+          const u = await User.findByIdAndUpdate(w.userId, { $inc: { balance: w.amount } }, { new: true });
           if (u) io.emit('balance_update_target', { userId: u._id.toString(), balance: u.balance });
         }
       } catch (err) {
@@ -793,7 +789,7 @@ io.on('connection', (socket) => {
   });
 
   // ── Place Jackpot Stake ──────────────────────────────────────────
-  socket.on('place_jackpot_stake', async ({ jackpotKey, jackpotName, selections, games }) => {
+  socket.on('place_jackpot_stake', async ({ jackpotKey, _jackpotName, selections, games }) => {
     if (!socket.user) return socket.emit('jackpot_error', { message: 'Please log in to place a jackpot stake.' });
     if (!checkRateLimit(socket.id, 'jackpot_stake', 3, 10000)) {
       return socket.emit('jackpot_error', { message: 'Too many requests. Please wait.' });
@@ -840,7 +836,7 @@ io.on('connection', (socket) => {
   socket.on('admin_settle_jackpot', async ({ ticketRef, status }) => {
     if (!socket.user || socket.user.role !== 'admin') return;
     try {
-      const ticket = await JackpotTicket.findOneAndUpdate({ ticketRef }, { status }, { returnDocument: 'after' });
+      const ticket = await JackpotTicket.findOneAndUpdate({ ticketRef }, { status }, { new: true });
       if (ticket && status === 'Won' && ticket.userId) {
         const prize = ticket.stake * 1000; // Example prize multiplier
         await User.findByIdAndUpdate(ticket.userId, { $inc: { balance: prize, totalWon: prize } });
@@ -874,7 +870,7 @@ io.on('connection', (socket) => {
     try {
       const amt = parseFloat(amount);
       if (isNaN(amt)) return;
-      const u = await User.findByIdAndUpdate(userId, { $inc: { balance: amt } }, { returnDocument: 'after' });
+      const u = await User.findByIdAndUpdate(userId, { $inc: { balance: amt } }, { new: true });
       if (u) {
         await Transaction.create({ userId: u._id, phone: u.phone, type: amt > 0 ? 'deposit' : 'withdrawal', amount: Math.abs(amt), ref: `ADMIN-${Date.now()}` });
         // Notify user if connected
@@ -890,7 +886,7 @@ io.on('connection', (socket) => {
   socket.on('admin_make_admin', async ({ userId }) => {
     if (!socket.user || socket.user.role !== 'admin') return;
     try {
-      const u = await User.findByIdAndUpdate(userId, { role: 'admin' }, { returnDocument: 'after' });
+      const u = await User.findByIdAndUpdate(userId, { role: 'admin' }, { new: true });
       if (u) {
         socket.emit('admin_balance_updated', { phone: u.phone, balance: u.balance, reason: 'Promoted to Admin' }); // Reusing notification UI
       }
@@ -920,7 +916,6 @@ io.on('connection', (socket) => {
     // Payload validation
     const stakeNum = parseFloat(stake);
     if (isNaN(stakeNum) || stakeNum < GAME_CONFIG.SPORTS.minStake || stakeNum > GAME_CONFIG.SPORTS.maxStake) {
-      const localMin = getLocalMinStake(GAME_CONFIG.SPORTS.minStake, socket.user?.countryId);
       return socket.emit('bet_error', { message: `Invalid stake. Minimum is ${formatLocalCurrency(GAME_CONFIG.SPORTS.minStake, socket.user?.countryId)}.` });
     }
     if (!Array.isArray(bets) || bets.length === 0 || bets.length > 50) {
@@ -1067,7 +1062,7 @@ io.on('connection', (socket) => {
     try {
       const amt = parseFloat(amount);
       if (isNaN(amt) || amt <= 0) return;
-      const u = await User.findByIdAndUpdate(userId, { $inc: { bonusBalance: amt } }, { returnDocument: 'after' });
+      const u = await User.findByIdAndUpdate(userId, { $inc: { bonusBalance: amt } }, { new: true });
       if (u) {
         await Transaction.create({ userId: u._id, phone: u.phone, type: 'bonus', amount: amt, ref: `BONUS-${Date.now()}` });
         io.emit('bonus_update_target', { userId: u._id.toString(), bonusBalance: u.bonusBalance });
@@ -1116,7 +1111,7 @@ io.on('connection', (socket) => {
       await Kyc.findOneAndUpdate(
         { userId: socket.user.userId },
         { userId: socket.user.userId, phone: socket.user.phone, idType, idNumber, fullName, status: 'Pending', submittedAt: new Date() },
-        { upsert: true, returnDocument: 'after' }
+        { upsert: true, new: true }
       );
       await User.findByIdAndUpdate(socket.user.userId, { kycStatus: 'pending' });
       socket.emit('kyc_submitted', { message: 'KYC submitted! We’ll review within 24 hours.' });
@@ -1173,7 +1168,7 @@ io.on('connection', (socket) => {
       const updatedUser = await User.findByIdAndUpdate(
         socket.user.userId,
         { $inc: { balance: -stakeNum } },
-        { returnDocument: 'after' }
+        { new: true }
       );
 
       await Transaction.create({
@@ -1226,7 +1221,7 @@ io.on('connection', (socket) => {
         const updatedUser = await User.findByIdAndUpdate(
           player.userId,
           { $inc: { balance: winnings, totalWon: winnings } },
-          { returnDocument: 'after' }
+          { new: true }
         );
         await Transaction.create({
           userId: player.userId,
@@ -1352,7 +1347,7 @@ const startFlyingPhase = () => {
             const updatedUser = await User.findByIdAndUpdate(
               player.userId,
               { $inc: { balance: winnings, totalWon: winnings } },
-              { returnDocument: 'after' }
+              { new: true }
             );
             await Transaction.create({
               userId: player.userId,
@@ -1547,7 +1542,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Auto-promote to admin if phone matches ADMIN_PHONE and role isn't already admin
     if (phone === ADMIN_PHONE && user.role !== 'admin') {
-      user = await User.findByIdAndUpdate(user._id, { role: 'admin' }, { returnDocument: 'after' });
+      user = await User.findByIdAndUpdate(user._id, { role: 'admin' }, { new: true });
       console.log(`✅ Auto-promoted ${phone} to admin on login`);
     }
 
@@ -1569,7 +1564,7 @@ app.get('/api/user/me', async (req, res) => {
     const user = await User.findById(decoded.userId).lean();
     if (!user) return res.status(404).json({ ok: false, error: 'User not found' });
     res.json({ ok: true, user: { userId: user._id.toString(), phone: user.phone, name: user.name, role: user.role, balance: user.balance, countryId: user.countryId, totalWon: user.totalWon } });
-  } catch (err) {
+  } catch (_err) {
     res.status(500).json({ ok: false, error: 'Server error' });
   }
 });
@@ -1646,7 +1641,7 @@ app.post('/api/payhero/webhook', express.json(), async (req, res) => {
       const depositUser = await User.findOneAndUpdate(
         userQuery,
         { $inc: { balance: amount, totalDeposited: amount } },
-        { returnDocument: 'after' }
+        { new: true }
       );
 
       if (depositUser) {
@@ -1656,7 +1651,7 @@ app.post('/api/payhero/webhook', express.json(), async (req, res) => {
           const referrer = await User.findOneAndUpdate(
             { referralCode: depositUser.referredBy },
             { $inc: { bonusBalance: 50, referralCount: 1, referralEarned: 50 } },
-            { returnDocument: 'after' }
+            { new: true }
           );
           if (referrer) {
             await Transaction.create({ userId: referrer._id, phone: referrer.phone, type: 'referral_bonus', amount: 50, ref: `REF-${depositUser.phone}` });
@@ -1697,7 +1692,7 @@ app.get('/api/user/history', async (req, res) => {
       JackpotTicket.find({ userId: decoded.userId }).sort({ createdAt: -1 }).limit(20).lean(),
     ]);
     res.json({ ok: true, bets, transactions: txns, jackpotTickets });
-  } catch (err) {
+  } catch (_err) {
     res.status(500).json({ ok: false, error: 'Server error' });
   }
 });

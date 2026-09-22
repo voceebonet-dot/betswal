@@ -19,7 +19,7 @@ var req = https.request(options, function (res) {
         chunks.push(chunk);
     });
 
-    res.on("end", function (chunk) {
+    res.on("end", function (_chunk) {
         var body = Buffer.concat(chunks);
         console.log(body.toString());
     });

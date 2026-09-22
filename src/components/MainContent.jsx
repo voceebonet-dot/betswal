@@ -296,7 +296,7 @@ const JackpotPanel = ({ setActiveJackpot }) => {
         const icon = j.icon || (i === 0 ? '🏆' : i === 1 ? '💰' : '🎯');
         
         return (
-          <div key={key} className="glass-panel" style={{
+          <div key={key} className="glass-panel card-lift" style={{
             background: `linear-gradient(135deg, rgba(27,36,46,0.9), rgba(13,25,35,0.9))`,
             border: `1px solid ${color}44`, 
             borderRadius: '16px', 
@@ -304,7 +304,7 @@ const JackpotPanel = ({ setActiveJackpot }) => {
             position: 'relative',
             overflow: 'hidden',
             boxShadow: grew ? `0 0 20px ${color}44` : 'none',
-            transition: 'all 0.3s'
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
           }}>
             <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '120px', opacity: 0.05, filter: `drop-shadow(0 0 20px ${color})` }}>
               {icon}

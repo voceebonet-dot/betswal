@@ -14,7 +14,7 @@ var options = {
 var req = https.request(options, function (res) {
     var chunks = [];
     res.on("data", function (chunk) { chunks.push(chunk); });
-    res.on("end", function (chunk) {
+    res.on("end", function (_chunk) {
         var body = Buffer.concat(chunks);
         console.log("Status Code:", res.statusCode);
         console.log("Response Body:", body.toString());

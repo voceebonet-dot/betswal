@@ -28,7 +28,7 @@ const Leaderboard = () => {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
         <span style={{ fontWeight: 800, fontSize: '13px', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          🏆 <span>Top Winners Today</span>
+          🏆 <span>Top Daily Winners</span>
         </span>
         <span style={{ fontSize: '10px', color: '#28a745', display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(40,167,69,0.12)', padding: '3px 8px', borderRadius: '20px', border: '1px solid rgba(40,167,69,0.25)' }}>
           <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#28a745', display: 'inline-block', animation: 'pulse 2s infinite', boxShadow: '0 0 4px #28a745' }} />
@@ -36,27 +36,28 @@ const Leaderboard = () => {
         </span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {topWinners.map((w, i) => (
-          <div key={i} style={{
+          <div key={i} className="card-lift" style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '9px 10px', borderRadius: '9px',
+            padding: '10px 12px', borderRadius: '10px',
             background: i === 0
               ? 'linear-gradient(135deg, rgba(254,205,8,0.14), rgba(134,196,57,0.07))'
               : 'rgba(255,255,255,0.04)',
-            border: i === 0 ? '1px solid rgba(254,205,8,0.25)' : '1px solid rgba(255,255,255,0.05)',
-            transition: 'all 0.2s',
+            border: i === 0 ? '1px solid rgba(254,205,8,0.35)' : '1px solid rgba(255,255,255,0.05)',
+            boxShadow: i === 0 ? '0 4px 15px rgba(254,205,8,0.1)' : 'none',
+            cursor: 'default'
           }}>
-            <span style={{ fontSize: i < 3 ? '16px' : '12px', fontWeight: 800, color: medalColor(i), minWidth: '20px', textAlign: 'center' }}>
+            <span style={{ fontSize: i < 3 ? '18px' : '14px', fontWeight: 800, color: medalColor(i), minWidth: '24px', textAlign: 'center' }}>
               {medal(i)}
             </span>
-            <span style={{ fontSize: '14px' }}>{w.flag}</span>
+            <span style={{ fontSize: '16px' }}>{w.flag}</span>
             <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontWeight: 600, letterSpacing: '0.3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.phone}</div>
-              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.game}</div>
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: '0.3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.phone}</div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.game}</div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: '12px', fontWeight: 800, color: '#86c439', textShadow: i === 0 ? '0 0 8px rgba(134,196,57,0.5)' : 'none' }}>
+              <div style={{ fontSize: '13px', fontWeight: 900, color: '#86c439', textShadow: i === 0 ? '0 0 10px rgba(134,196,57,0.6)' : 'none' }}>
                 {formatCurrency(w.amount)}
               </div>
             </div>
